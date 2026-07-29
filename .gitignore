@@ -1,0 +1,17 @@
+node_modules/
+dist/
+coverage/
+.vite/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+
+# Unity-generated folders are intentionally excluded; this project is Phaser-based.
+Library/
+Temp/
+Logs/
+obj/
+UserSettings/
+MemoryCaptures/
+Recordings/
