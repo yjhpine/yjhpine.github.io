@@ -15,6 +15,35 @@ function addBaseLine(graph: FactoryGraph): { order: string; maker: string; deliv
   return { order: order.instanceId, maker: maker.instanceId, delivery: delivery.instanceId };
 }
 
+describe("GameSession defaults", () => {
+  it("starts with fixed order-input and delivery-bay modules", () => {
+    const session = new GameSession("o01");
+    const ids = session.graph.modules.map((module) => module.moduleId).sort();
+    expect(ids).toEqual(["delivery-bay", "order-input"]);
+  });
+
+  it("rejects placing another order-input or delivery-bay", () => {
+    const session = new GameSession("o01");
+    expect(() => session.addModule("order-input", 0, 0)).toThrow(/기본 장치/);
+    expect(() => session.addModule("delivery-bay", 0, 0)).toThrow(/기본 장치/);
+  });
+
+  it("prevents deleting default modules", () => {
+    const session = new GameSession("o01");
+    const order = session.graph.modules.find((module) => module.moduleId === "order-input")!;
+    expect(session.removeModule(order.instanceId)).toBe(false);
+    expect(session.graph.modules).toHaveLength(2);
+  });
+
+  it("reset keeps only the default modules", () => {
+    const session = new GameSession("o01");
+    session.addModule("image-maker", 280, 265);
+    session.reset();
+    expect(session.graph.modules.map((module) => module.moduleId).sort()).toEqual(["delivery-bay", "order-input"]);
+    expect(session.graph.connections).toHaveLength(0);
+  });
+});
+
 describe("FactoryGraph and connection rules", () => {
   it("allows a compatible output-to-input connection", () => {
     const graph = new FactoryGraph(); const order = graph.addModule("order-input", 0, 0); const maker = graph.addModule("image-maker", 0, 0);
@@ -52,7 +81,9 @@ describe("FactoryGraph and connection rules", () => {
 
 describe("Pipeline execution", () => {
   it("rejects a pipeline without a delivery path", () => {
-    const session = new GameSession("o01"); const order = session.addModule("order-input", 0, 0); const maker = session.addModule("image-maker", 0, 0);
+    const session = new GameSession("o01");
+    const order = session.graph.modules.find((module) => module.moduleId === "order-input")!;
+    const maker = session.addModule("image-maker", 0, 0);
     session.connect(order.instanceId, "order-out", maker.instanceId, "order-in");
     expect(session.execute()).toMatchObject({ valid: false });
   });

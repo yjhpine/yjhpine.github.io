@@ -1,0 +1,23 @@
+제목: 7월30일 입력·배송 기본 고정 중간모듈만 구성
+
+작업 일시: 2026-07-30
+
+변경 요약
+- 주문서 입력기·배송대를 공장 기본 장치로 항상 배치
+- 플레이어는 중간 장치(그림 제작기, 스타일 등)만 팔레트에서 추가
+- 기본 장치는 삭제·중복 배치 불가, 이동·연결만 가능
+- 초기화 시 중간 장치만 제거하고 입력·배송 유지
+
+주요 변경 파일
+- src/core/defaults.ts (신규)
+- src/core/GameSession.ts
+- src/game/FactoryScene.ts
+- src/ui/UIController.ts
+- src/data/orders.ts
+- src/core/progression/ProgressionService.ts
+- src/core/core.test.ts
+- README.md, Docs/*, 기획서 PDF
+
+검증
+- npm run typecheck 통과
+- npm run test 통과 (20 tests)

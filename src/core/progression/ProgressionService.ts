@@ -5,7 +5,7 @@ export class ProgressionService {
   constructor(private data: SaveData) {}
 
   static createDefault(): ProgressionService {
-    return new ProgressionService({ version: 1, credits: 0, completedOrderIds: [], unlockedModuleIds: ["order-input", "image-maker", "delivery-bay"], tutorialStage: 1, activeOrderId: "o01" });
+    return new ProgressionService({ version: 1, credits: 0, completedOrderIds: [], unlockedModuleIds: ["image-maker"], tutorialStage: 1, activeOrderId: "o01" });
   }
 
   get snapshot(): SaveData { return structuredClone(this.data); }

@@ -56,12 +56,16 @@ export class FactoryScene extends Phaser.Scene {
 
   addModule(moduleId: string): void {
     if (!this.session) return;
-    const index = this.session.graph.modules.length;
-    const instance = this.session.addModule(moduleId, 150 + index * 160, 265);
-    this.refresh(); this.select(instance.instanceId); this.notifyGraphChanged();
+    try {
+      const middleCount = this.session.graph.modules.filter((module) => module.moduleId !== "order-input" && module.moduleId !== "delivery-bay").length;
+      const instance = this.session.addModule(moduleId, 280 + middleCount * 150, 265);
+      this.refresh(); this.select(instance.instanceId); this.notifyGraphChanged();
+    } catch (error) {
+      this.eventBus.emit("notice", { message: error instanceof Error ? error.message : "장치를 배치할 수 없습니다.", tone: "error" });
+    }
   }
 
-  resetFactory(): void { if (!this.session) return; this.session.reset(); this.refresh(); this.notifyGraphChanged(); }
+  resetFactory(): void { if (!this.session) return; this.session.reset(); this.select(undefined); this.refresh(); this.notifyGraphChanged(); this.eventBus.emit("notice", { message: "입력기와 배송대만 남기고 중간 장치를 초기화했습니다.", tone: "info" }); }
   undo(): void { if (!this.session) return; if (this.session.undo()) { this.refresh(); this.notifyGraphChanged(); } else this.eventBus.emit("notice", { message: "되돌릴 변경이 없습니다.", tone: "info" }); }
 
   getSelectedModule(): ModuleInstance | undefined { return this.selectedInstanceId ? this.session?.graph.getInstance(this.selectedInstanceId) : undefined; }
@@ -82,13 +86,14 @@ export class FactoryScene extends Phaser.Scene {
       if (existing) existing.setPosition(instance.x, instance.y);
       else {
         const definition = modulesById.get(instance.moduleId); if (!definition) continue;
+        const locked = this.session.isDefaultInstance(instance.instanceId);
         this.moduleViews.set(instance.instanceId, new ModuleView(this, instance, definition, {
           select: () => this.select(instance.instanceId),
           moveStart: () => this.session?.checkpoint(),
           move: (x, y) => this.moveModule(instance.instanceId, x, y),
           startPort: (portId) => this.beginPortDrag(instance.instanceId, portId),
           endPort: (portId) => this.finishPortDrag(instance.instanceId, portId),
-        }));
+        }, locked));
       }
     }
     this.redrawConnections(); this.refreshHighlights();
@@ -124,6 +129,10 @@ export class FactoryScene extends Phaser.Scene {
 
   private removeSelected(): void {
     if (!this.session || !this.selectedInstanceId) return;
+    if (this.session.isDefaultInstance(this.selectedInstanceId)) {
+      this.eventBus.emit("notice", { message: "입력기와 배송대는 기본 장치라서 삭제할 수 없습니다.", tone: "info" });
+      return;
+    }
     this.session.removeModule(this.selectedInstanceId); this.select(undefined); this.refresh(); this.notifyGraphChanged();
   }
 
@@ -166,13 +175,15 @@ class ModuleView {
   readonly container: Phaser.GameObjects.Container;
   readonly ports: PortView[] = [];
   private readonly body: Phaser.GameObjects.Rectangle;
+  private readonly locked: boolean;
 
-  constructor(private readonly scene: FactoryScene, readonly instance: ModuleInstance, readonly definition: ModuleDefinition, private readonly callbacks: { select: () => void; moveStart: () => void; move: (x: number, y: number) => void; startPort: (portId: string) => void; endPort: (portId: string) => void }) {
+  constructor(private readonly scene: FactoryScene, readonly instance: ModuleInstance, readonly definition: ModuleDefinition, private readonly callbacks: { select: () => void; moveStart: () => void; move: (x: number, y: number) => void; startPort: (portId: string) => void; endPort: (portId: string) => void }, locked = false) {
+    this.locked = locked;
     this.container = scene.add.container(instance.x, instance.y);
-    this.body = scene.add.rectangle(0, 0, 148, 76, 0x173a58, 1).setStrokeStyle(3, 0x6e9ab8, 1).setInteractive({ useHandCursor: true });
+    this.body = scene.add.rectangle(0, 0, 148, 76, locked ? 0x1a4a3a : 0x173a58, 1).setStrokeStyle(3, locked ? 0x34a576 : 0x6e9ab8, 1).setInteractive({ useHandCursor: true });
     const icon = scene.add.text(-61, -22, definition.iconKey, { fontSize: "25px" });
     const name = scene.add.text(-25, -27, definition.displayName, { fontSize: "15px", color: "#eff9ff", fontStyle: "bold", wordWrap: { width: 88 } });
-    const detail = scene.add.text(-61, 23, `${definition.processingTime ? `${definition.processingTime}초` : "즉시"} · ${definition.portHint}`, { fontSize: "11px", color: "#9fc1d7" });
+    const detail = scene.add.text(-61, 23, locked ? "기본 장치 · 삭제 불가" : `${definition.processingTime ? `${definition.processingTime}초` : "즉시"} · ${definition.portHint}`, { fontSize: "11px", color: locked ? "#8fd4b5" : "#9fc1d7" });
     this.container.add([this.body, icon, name, detail]);
     this.body.on("pointerdown", () => callbacks.select());
     this.body.on("dragstart", () => callbacks.moveStart());
@@ -182,7 +193,7 @@ class ModuleView {
   }
 
   setPosition(x: number, y: number): void { this.container.setPosition(x, y); }
-  setSelected(value: boolean): void { this.body.setStrokeStyle(3, value ? 0x22d3ee : 0x6e9ab8, 1); }
+  setSelected(value: boolean): void { this.body.setStrokeStyle(3, value ? 0x22d3ee : (this.locked ? 0x34a576 : 0x6e9ab8), 1); }
   get instanceId(): string { return this.instance.instanceId; }
   getPortPosition(portId: string): Phaser.Math.Vector2 | undefined { const port = this.ports.find((item) => item.definition.id === portId); return port ? new Phaser.Math.Vector2(this.container.x + port.dot.x, this.container.y + port.dot.y) : undefined; }
   destroy(): void { this.container.destroy(true); }
