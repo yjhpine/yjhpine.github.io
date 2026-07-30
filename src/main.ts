@@ -1,20 +1,20 @@
 import Phaser from "phaser";
 import "./style.css";
-import { FactoryScene } from "./game/FactoryScene";
+import { KitchenScene } from "./game/KitchenScene";
 import { UIController } from "./ui/UIController";
 
 const ui = new UIController(document.querySelector<HTMLElement>("#app")!);
-const factoryScene = new FactoryScene();
-ui.attachScene(factoryScene);
+const kitchenScene = new KitchenScene();
+ui.attachScene(kitchenScene);
 
 const game = new Phaser.Game({
   type: Phaser.CANVAS,
   parent: "game-canvas",
-  backgroundColor: "#102b46",
+  backgroundColor: "#0b2137",
   width: 960,
   height: 540,
-  scene: [factoryScene],
-  scale: { mode: Phaser.Scale.RESIZE, width: "100%", height: "100%" },
+  scene: [kitchenScene],
+  scale: { mode: Phaser.Scale.FIT, width: 960, height: 540, autoCenter: Phaser.Scale.CENTER_BOTH },
   render: { antialias: true, pixelArt: false },
 });
 

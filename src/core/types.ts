@@ -52,26 +52,6 @@ export interface ModuleDefinition {
   portHint: string;
 }
 
-export interface ModuleInstance {
-  instanceId: string;
-  moduleId: string;
-  x: number;
-  y: number;
-}
-
-export interface ModuleConnection {
-  id: string;
-  fromInstanceId: string;
-  fromPortId: string;
-  toInstanceId: string;
-  toPortId: string;
-}
-
-export interface FactorySnapshot {
-  modules: ModuleInstance[];
-  connections: ModuleConnection[];
-}
-
 export interface GenerationIssue {
   id: string;
   message: string;
@@ -114,5 +94,4 @@ export interface SaveData {
   unlockedModuleIds: string[];
   tutorialStage: number;
   activeOrderId: string;
-  factorySnapshot?: FactorySnapshot;
 }

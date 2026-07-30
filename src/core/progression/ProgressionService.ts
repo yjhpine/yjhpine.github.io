@@ -12,8 +12,9 @@ export class ProgressionService {
   get currentOrderId(): string { return this.data.activeOrderId; }
   get credits(): number { return this.data.credits; }
 
-  activateOrder(orderId: string): void { this.data.activeOrderId = orderId; this.data.factorySnapshot = undefined; }
-  saveFactory(factorySnapshot: SaveData["factorySnapshot"]): void { this.data.factorySnapshot = factorySnapshot ? structuredClone(factorySnapshot) : undefined; }
+  activateOrder(orderId: string): void { this.data.activeOrderId = orderId; }
+  get unlockedModuleIds(): string[] { return [...this.data.unlockedModuleIds]; }
+  addCredits(amount: number): void { this.data.credits += amount; }
   isComplete(orderId: string): boolean { return this.data.completedOrderIds.includes(orderId); }
   nextOrderId(): string | undefined { const index = orders.findIndex((order) => order.id === this.data.activeOrderId); return orders[index + 1]?.id; }
 

@@ -1,0 +1,21 @@
+제목: 7월30일 Overcooked형 공장 전면 개편
+
+작업 일시: 2026-07-30
+
+변경 요약
+- 포트 연결 공장 퍼즐을 폐기하고 오버쿡드형 플로우로 교체
+- 1A: WASD 캐릭터 + E/Space 상호작용으로 주문서/칩/이미지 운반
+- 2B: 모듈 선반에서 칩을 집어 입력~출구 사이 슬롯 3칸에 꽂기
+- 손님 최대 2명, 인내심 바, 납품 평가 유지
+- GenerationSimulator / OrderEvaluator / O01~O06 재사용
+
+주요 파일
+- 신규: src/core/kitchen/*, src/game/KitchenScene.ts
+- 교체: src/ui/UIController.ts, src/main.ts, src/data/orders.ts
+- 삭제: FactoryScene, GameSession, defaults, graph/*, pipeline/*
+- 문서: README, Docs/*, 작업일지
+
+검증
+- npm run typecheck 통과
+- npm run test 통과 (13)
+- npm run build 통과
