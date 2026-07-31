@@ -42,6 +42,7 @@ h1 { font-size: clamp(3rem, 9vw, 6rem); margin: 20px 0 10px; letter-spacing: -.0
 .top-actions { flex-wrap: wrap; justify-content: flex-end; }
 .order-step, .factory-status { color: #92b9cd; font-size: .85rem; }
 .credits { color: #f7d047; font-weight: 800; white-space: nowrap; }
+.vram-status.is-over { color: #ff8f85; font-weight: 800; }
 .game-layout { display: grid; grid-template-columns: minmax(190px, 250px) minmax(480px, 1fr) minmax(210px, 270px); min-height: 610px; border: 1px solid #315d78; border-top: 0; background: #0d2439; }
 .game-layout.kitchen-layout--wide { grid-template-columns: minmax(210px, 280px) minmax(560px, 1fr); }
 .panel { background: rgba(15, 45, 67, .94); border: 1px solid #315d78; }
@@ -121,7 +122,12 @@ dt { color: #7fb9d3; font-size: .68rem; font-weight: 800; } dd { margin: 4px 0 0
 .prompt-card { min-height: 145px; border-radius: 12px; border: 2px solid #466e86; background: #143550; padding: 14px; }
 .prompt-card b { display: block; margin-bottom: 8px; }
 .prompt-card p { margin: 0; color: #b8d8e8; line-height: 1.5; }
-.next-order-btn { width: 100%; margin-top: 12px; }
+.next-order-btn, .next-round-btn { width: 100%; margin-top: 12px; }
+.score-list { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 8px; }
+.score-list li { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 10px; background: #143550; }
+.score-list span { color: #9bc2d6; font-size: .78rem; }
+.score-list b { font-size: .85rem; }
+.score-list em { color: #f7d047; font-style: normal; font-weight: 800; }
 .issues em { font-style: normal; color: #f7d047; font-size: .72rem; }
 
 @media (max-width: 1050px) { .game-layout, .game-layout.kitchen-layout--wide { grid-template-columns: 210px minmax(480px, 1fr); } }

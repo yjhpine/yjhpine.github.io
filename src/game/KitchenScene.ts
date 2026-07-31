@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { KitchenSession } from "../core/kitchen/KitchenSession";
-import type { CarryItem, KitchenActionResult } from "../core/kitchen/types";
+import type { CarryItem, KitchenActionResult, RoundStats } from "../core/kitchen/types";
 import { modulesById } from "../data/modules";
 import { GameEventBus } from "./events/GameEventBus";
 
@@ -10,6 +10,7 @@ type SceneEvents = {
   delivered: NonNullable<KitchenActionResult["delivered"]>;
   customerLeft: string;
   inspectToggle: void;
+  roundFinished: RoundStats;
 };
 
 type InteractTarget =
@@ -212,6 +213,7 @@ export class KitchenScene extends Phaser.Scene {
     if (event.message) this.eventBus.emit("notice", { message: event.message, tone: event.tone });
     if (event.delivered) this.eventBus.emit("delivered", event.delivered);
     if (event.leftCustomerId) this.eventBus.emit("customerLeft", event.leftCustomerId);
+    if (event.roundFinished) this.eventBus.emit("roundFinished", event.roundFinished);
   }
 
   private nearestTarget(): InteractTarget | undefined {

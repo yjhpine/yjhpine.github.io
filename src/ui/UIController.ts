@@ -1,19 +1,22 @@
 import Phaser from "phaser";
 import { KitchenSession } from "../core/kitchen/KitchenSession";
-import type { CarryItem } from "../core/kitchen/types";
-import type { GenerationResult, OrderDefinition, QualityScores } from "../core/types";
+import { RoundScoreService, type RoundScoreBreakdown } from "../core/kitchen/RoundScoreService";
+import type { CarryItem, RoundStats } from "../core/kitchen/types";
+import type { GenerationResult } from "../core/types";
 import { SaveService } from "../core/save/SaveService";
 import { ProgressionService } from "../core/progression/ProgressionService";
 import { modulesById } from "../data/modules";
-import { orders, ordersById } from "../data/orders";
+import { rounds, roundsById } from "../data/rounds";
 import { KitchenScene } from "../game/KitchenScene";
 
 export class UIController {
   private readonly saveService = new SaveService();
+  private readonly scorer = new RoundScoreService();
   private progression: ProgressionService;
   private scene: KitchenScene | undefined;
   private session: KitchenSession | undefined;
   private inspectOpen = false;
+  private roundSummaryOpen = false;
 
   constructor(private readonly root: HTMLElement) {
     this.progression = this.saveService.load();
@@ -39,12 +42,13 @@ export class UIController {
     scene.eventBus.on("delivered", (payload) => this.onDelivered(payload));
     scene.eventBus.on("customerLeft", () => this.renderHud());
     scene.eventBus.on("inspectToggle", () => this.toggleInspect());
+    scene.eventBus.on("roundFinished", (stats) => this.onRoundFinished(stats));
   }
 
   private bindDom(): void {
-    this.byId<HTMLButtonElement>("start-game").addEventListener("click", () => this.startActiveOrder(true));
-    this.byId<HTMLButtonElement>("continue-game").addEventListener("click", () => this.startActiveOrder(false));
-    this.byId<HTMLButtonElement>("next-order").addEventListener("click", () => this.advance());
+    this.byId<HTMLButtonElement>("start-game").addEventListener("click", () => this.startRound(true));
+    this.byId<HTMLButtonElement>("continue-game").addEventListener("click", () => this.startRound(false));
+    this.byId<HTMLButtonElement>("next-round").addEventListener("click", () => this.advanceRound());
     this.byId<HTMLButtonElement>("clear-save").addEventListener("click", () => this.clearSave());
     this.byId<HTMLButtonElement>("back-to-menu").addEventListener("click", () => this.showMenu());
     this.byId<HTMLButtonElement>("reset-line").addEventListener("click", () => {
@@ -57,54 +61,61 @@ export class UIController {
     this.byId("inspect-modal").addEventListener("click", (event) => {
       if (event.target === this.byId("inspect-modal")) this.closeInspect();
     });
+    this.byId<HTMLButtonElement>("round-summary-close").addEventListener("click", () => this.closeRoundSummary());
   }
 
-  private startActiveOrder(fresh: boolean): void {
+  private startRound(fresh: boolean): void {
     if (!this.scene) { this.showNotice("주방 화면을 준비하고 있습니다.", "info"); return; }
     if (fresh) {
       this.progression = ProgressionService.createDefault();
       this.saveService.save(this.progression);
     }
-    this.session = new KitchenSession(this.progression.currentOrderId, this.progression.unlockedModuleIds);
+    this.session = new KitchenSession(this.progression.currentRoundId, this.progression.unlockedModuleIds);
     this.closeInspect();
+    this.closeRoundSummary();
     this.scene.loadSession(this.session);
     this.byId("menu-screen").classList.add("is-hidden");
     this.byId("game-screen").classList.remove("is-hidden");
-    this.renderOrder();
+    this.renderRoundInfo();
     this.renderHud();
-    this.byId<HTMLButtonElement>("next-order").hidden = true;
   }
 
   private renderMenu(): void {
-    const completed = this.progression.snapshot.completedOrderIds.length;
+    const completed = this.progression.snapshot.completedRoundIds.length;
     this.byId("menu-progress").textContent = completed
-      ? `${completed}개 의뢰를 완료했습니다. 손님 응대를 이어가세요.`
-      : "손님이 가져온 프롬프트를 공장에서 이미지로 바꿔 전달하는 오버쿡드형 퍼즐입니다.";
+      ? `${completed}개 라운드를 완료했습니다. VRAM을 아끼며 이어서 응대하세요.`
+      : "라운드마다 손님이 오고, 생산마다 VRAM이 닳습니다. 최적 파이프라인으로 높은 점수를 노리세요.";
     this.byId<HTMLButtonElement>("continue-game").hidden = completed === 0;
   }
 
-  private renderOrder(): void {
-    const order = this.order;
-    this.byId("order-title").textContent = order.title;
-    this.byId("order-request").textContent = order.request;
-    this.byId("tutorial-message").textContent = order.tutorial;
-    this.byId("order-step").textContent = `${orders.findIndex((item) => item.id === order.id) + 1} / ${orders.length}`;
-    this.byId("shelf-guide").innerHTML = order.availableModuleIds.map((moduleId) => {
+  private renderRoundInfo(): void {
+    const round = this.session?.roundDefinition ?? roundsById.get(this.progression.currentRoundId)!;
+    this.byId("order-title").textContent = round.title;
+    this.byId("order-request").textContent = `목표 손님 ${round.targetCustomers}명 · VRAM 예산 ${round.vramBudget}`;
+    this.byId("tutorial-message").textContent = round.tutorial;
+    this.byId("order-step").textContent = `${rounds.findIndex((item) => item.id === round.id) + 1} / ${rounds.length}`;
+    this.byId("shelf-guide").innerHTML = round.availableModuleIds.map((moduleId) => {
       const definition = modulesById.get(moduleId)!;
-      return `<li><span>${definition.iconKey}</span><b>${definition.displayName}</b><small>${definition.description}</small></li>`;
+      return `<li><span>${definition.iconKey}</span><b>${definition.displayName}</b><small>VRAM ${definition.vramCost} · ${definition.description}</small></li>`;
     }).join("");
   }
 
   private renderHud(): void {
     if (!this.session) return;
+    const stats = this.session.getStats();
     const carry = this.session.getCarry();
-    const waiting = this.session.getWaitingCustomers().length;
+    const over = stats.vramUsed > stats.vramBudget;
     this.byId("credits").textContent = `${this.progression.credits} C`;
-    this.byId("waiting-count").textContent = `대기 ${waiting}명`;
+    this.byId("waiting-count").textContent = `손님 ${stats.resolvedCustomers}/${stats.targetCustomers}`;
+    this.byId("vram-status").textContent = `VRAM ${stats.vramUsed}/${stats.vramBudget}`;
+    this.byId("vram-status").classList.toggle("is-over", over);
     this.byId("carry-status").textContent = carryLabel(carry);
+    const preview = this.session.getSlotVramPreview();
+    this.byId("vram-preview").textContent = preview ? `이번 생산 ${preview}` : "이번 생산 0";
   }
 
   private toggleInspect(): void {
+    if (this.roundSummaryOpen) return;
     if (this.inspectOpen) {
       this.closeInspect();
       return;
@@ -135,7 +146,7 @@ export class UIController {
         <p class="inspect-eyebrow">손님 프롬프트</p>
         <h2>주문서 확인</h2>
         <blockquote class="inspect-prompt">“${escapeHtml(carry.prompt)}”</blockquote>
-        <p class="inspect-hint">이 조건에 맞춰 모듈 칩을 꽂아 이미지를 만드세요.</p>`;
+        <p class="inspect-hint">필요한 칩만 꽂아 VRAM을 아끼세요.</p>`;
       return;
     }
     if (carry.kind === "product") {
@@ -149,35 +160,67 @@ export class UIController {
           <b>${passed ? "조건 충족" : "조건 미달"}</b>
           <span>${escapeHtml(carry.evaluation.summary)}</span>
         </div>
-        ${scoreGrid(carry.result)}
-        <p class="inspect-hint">맞는 손님에게 전달하세요. X로 닫습니다.</p>`;
+        <p class="inspect-hint">이 생산 VRAM ${carry.vramSpend} · X로 닫기</p>`;
       return;
     }
     this.closeInspect();
   }
 
-  private onDelivered(payload: { reward: number; passed: boolean; evaluation: { summary: string }; result: GenerationResult }): void {
+  private onDelivered(payload: { reward: number; passed: boolean }): void {
     this.closeInspect();
-    if (payload.passed) {
-      this.progression.completeActiveOrder(payload.reward);
-      this.session?.setUnlockedModules(this.progression.unlockedModuleIds);
-    } else {
-      this.progression.addCredits(payload.reward);
-    }
+    this.progression.addCredits(payload.reward);
     this.saveService.save(this.progression);
     this.renderHud();
-    this.renderMenu();
-    const next = this.progression.nextOrderId();
-    this.byId<HTMLButtonElement>("next-order").hidden = !(payload.passed && this.progression.isComplete(this.order.id) && next);
-    this.showNotice(payload.passed ? `납품 성공! +${payload.reward} C` : `조건 미달… +${payload.reward} C`, payload.passed ? "success" : "error");
   }
 
-  private advance(): void {
-    const next = this.progression.nextOrderId();
-    if (!next) { this.showNotice("모든 MVP 의뢰를 완료했습니다!", "info"); return; }
-    this.progression.activateOrder(next);
+  private onRoundFinished(stats: RoundStats): void {
+    this.closeInspect();
+    const round = roundsById.get(stats.roundId)!;
+    const score = this.scorer.score(stats, round.baseReward);
+    if (!this.progression.isComplete(stats.roundId)) {
+      this.progression.completeActiveRound(score.total, score.creditReward);
+    } else {
+      this.progression.recordBestScore(stats.roundId, score.total);
+      this.progression.addCredits(Math.floor(score.creditReward * 0.5));
+    }
     this.saveService.save(this.progression);
-    this.startActiveOrder(false);
+    this.renderMenu();
+    this.showRoundSummary(stats, score);
+  }
+
+  private showRoundSummary(stats: RoundStats, score: RoundScoreBreakdown): void {
+    this.roundSummaryOpen = true;
+    const next = this.progression.nextRoundId();
+    this.byId("round-summary-body").innerHTML = `
+      <p class="inspect-eyebrow">라운드 정산</p>
+      <h2>등급 ${score.grade} · ${score.total}점</h2>
+      <ul class="score-list">
+        <li><span>납품 성공</span><b>${stats.passedDeliveries}/${stats.targetCustomers}</b><em>+${score.deliveryScore}</em></li>
+        <li><span>VRAM 효율</span><b>${stats.vramUsed} / 이상적 ${score.idealVram}</b><em>+${score.efficiencyScore}</em></li>
+        <li><span>이탈 방어</span><b>이탈 ${stats.leftCustomers}</b><em>+${score.retentionScore}</em></li>
+        <li><span>예산 준수</span><b>${stats.vramUsed}/${stats.vramBudget}${score.overBudget ? ` (초과 ${score.overBudget})` : ""}</b><em>+${score.budgetScore}</em></li>
+      </ul>
+      <div class="result-summary success"><b>보상 +${score.creditReward} 크레딧</b><span>최적 파이프라인일수록 VRAM 효율 점수가 올라갑니다.</span></div>`;
+    this.byId<HTMLButtonElement>("next-round").hidden = !next;
+    this.byId<HTMLButtonElement>("next-round").textContent = next ? "다음 라운드 →" : "모든 라운드 완료";
+    this.byId("round-summary-modal").classList.remove("is-hidden");
+  }
+
+  private closeRoundSummary(): void {
+    this.roundSummaryOpen = false;
+    this.byId("round-summary-modal").classList.add("is-hidden");
+  }
+
+  private advanceRound(): void {
+    const next = this.progression.nextRoundId();
+    if (!next) {
+      this.showNotice("모든 라운드를 완료했습니다!", "success");
+      this.closeRoundSummary();
+      return;
+    }
+    this.progression.activateRound(next);
+    this.saveService.save(this.progression);
+    this.startRound(false);
   }
 
   private clearSave(): void {
@@ -185,12 +228,14 @@ export class UIController {
     this.progression = ProgressionService.createDefault();
     this.session = undefined;
     this.closeInspect();
+    this.closeRoundSummary();
     this.showMenu();
     this.renderMenu();
   }
 
   private showMenu(): void {
     this.closeInspect();
+    this.closeRoundSummary();
     this.byId("game-screen").classList.add("is-hidden");
     this.byId("menu-screen").classList.remove("is-hidden");
   }
@@ -202,10 +247,6 @@ export class UIController {
     window.setTimeout(() => notice.classList.remove("is-visible"), 2800);
   }
 
-  private get order(): OrderDefinition {
-    return this.session?.order ?? ordersById.get(this.progression.currentOrderId) ?? orders[0];
-  }
-
   private byId<T extends HTMLElement = HTMLElement>(id: string): T {
     return this.root.querySelector<T>(`#${id}`)!;
   }
@@ -213,18 +254,13 @@ export class UIController {
 
 function carryLabel(carry: CarryItem): string {
   if (carry.kind === "none") return "손: 비움";
-  if (carry.kind === "order") return "손: 주문서 📜 (X 확인)";
-  if (carry.kind === "moduleChip") return `손: ${modulesById.get(carry.moduleId)?.displayName ?? "칩"} ${modulesById.get(carry.moduleId)?.iconKey ?? ""}`;
-  return "손: 이미지 🖼️ (X 확인)";
+  if (carry.kind === "order") return "손: 주문서 📜 (X)";
+  if (carry.kind === "moduleChip") return `손: ${modulesById.get(carry.moduleId)?.displayName ?? "칩"}`;
+  return "손: 이미지 🖼️ (X)";
 }
 
 function escapeHtml(value: string): string {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
-}
-
-function scoreGrid(result: GenerationResult): string {
-  const scores: [keyof QualityScores, string][] = [["subjectAccuracy", "대상"], ["styleMatch", "스타일"], ["composition", "구도"], ["sharpness", "선명도"]];
-  return `<div class="score-grid">${scores.map(([key, label]) => `<div><span>${label}</span><b>${result[key]}</b></div>`).join("")}<div><span>처리 시간</span><b>${result.processingTime}초</b></div></div>`;
 }
 
 function preview(result: GenerationResult): string {
@@ -245,13 +281,13 @@ function shell(): string {
   <section id="menu-screen" class="menu-screen">
     <div class="brand-chip">AI FACTORY</div>
     <h1>AI Factory</h1>
-    <p class="hero-copy">손님이 가져온 프롬프트를<br>공장 라인으로 이미지로 바꿔 전달하세요</p>
+    <p class="hero-copy">라운드마다 손님을 응대하고<br>VRAM을 아끼며 최적 파이프라인을 만드세요</p>
     <p id="menu-progress" class="menu-progress"></p>
     <div class="menu-actions">
       <button id="start-game" class="primary">새 게임 시작</button>
       <button id="continue-game" class="secondary">이어서 하기</button>
     </div>
-    <p class="menu-note">WASD 이동 · Z 상호작용 · C 대시 · X로 프롬프트/이미지 확인</p>
+    <p class="menu-note">WASD 이동 · Z 상호작용 · C 대시 · X 확인 · 생산마다 VRAM 소모</p>
   </section>
   <section id="game-screen" class="game-screen is-hidden">
     <header class="topbar">
@@ -261,9 +297,10 @@ function shell(): string {
       </div>
       <div class="top-actions">
         <span id="credits" class="credits">0 C</span>
-        <span id="waiting-count" class="factory-status">대기 0명</span>
+        <span id="waiting-count" class="factory-status">손님 0/3</span>
+        <span id="vram-status" class="factory-status vram-status">VRAM 0/24</span>
+        <span id="vram-preview" class="factory-status">이번 생산 0</span>
         <span id="carry-status" class="factory-status">손: 비움</span>
-        <button id="next-order" class="secondary" hidden>다음 의뢰 →</button>
         <button id="reset-line" class="ghost">라인 비우기</button>
         <button id="clear-save" class="ghost danger">저장 초기화</button>
         <button id="back-to-menu" class="ghost">메뉴</button>
@@ -271,7 +308,7 @@ function shell(): string {
     </header>
     <div class="game-layout kitchen-layout kitchen-layout--wide">
       <aside class="left-panel panel">
-        <div class="panel-heading"><span>현재 의뢰</span><small>해금 모듈 칩</small></div>
+        <div class="panel-heading"><span>현재 라운드</span><small>해금 모듈 칩</small></div>
         <h2 id="order-title" class="side-title"></h2>
         <p id="order-request" class="side-copy"></p>
         <p id="tutorial-message" class="tutorial-message side-tutorial"></p>
@@ -279,7 +316,7 @@ function shell(): string {
       </aside>
       <section class="factory-column">
         <div id="game-canvas" class="game-canvas" aria-label="주방 공장 공간"></div>
-        <p class="canvas-help">WASD 이동 · Z 상호작용 · C 대시 · X 들여다보기</p>
+        <p class="canvas-help">WASD 이동 · Z 상호작용 · C 대시 · X 들여다보기 · 생산 시 VRAM 소모</p>
       </section>
     </div>
   </section>
@@ -287,6 +324,13 @@ function shell(): string {
     <div class="inspect-card">
       <button id="inspect-close" class="ghost inspect-close" type="button">닫기 (X)</button>
       <div id="inspect-body"></div>
+    </div>
+  </div>
+  <div id="round-summary-modal" class="inspect-modal is-hidden" role="dialog" aria-modal="true" aria-label="라운드 정산">
+    <div class="inspect-card">
+      <button id="round-summary-close" class="ghost inspect-close" type="button">닫기</button>
+      <div id="round-summary-body"></div>
+      <button id="next-round" class="primary next-round-btn">다음 라운드 →</button>
     </div>
   </div>
   <div id="toast" class="toast" role="status"></div>

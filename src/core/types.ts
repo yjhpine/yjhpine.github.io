@@ -47,6 +47,8 @@ export interface ModuleDefinition {
   outputPorts: PortDefinition[];
   price: number;
   processingTime: number;
+  /** VRAM spent when this chip is used in a production run. */
+  vramCost: number;
   effects: ModuleEffect[];
   iconKey: string;
   portHint: string;
@@ -88,10 +90,11 @@ export interface OrderEvaluation {
 }
 
 export interface SaveData {
-  version: 1;
+  version: 2;
   credits: number;
-  completedOrderIds: string[];
+  completedRoundIds: string[];
   unlockedModuleIds: string[];
   tutorialStage: number;
-  activeOrderId: string;
+  activeRoundId: string;
+  bestRoundScores: Record<string, number>;
 }

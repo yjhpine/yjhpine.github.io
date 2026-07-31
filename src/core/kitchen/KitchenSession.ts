@@ -1,8 +1,11 @@
+import { modulesById } from "../../data/modules";
 import { ordersById } from "../../data/orders";
 import { pickPromptForOrder } from "../../data/prompts";
+import { roundsById, type RoundDefinition } from "../../data/rounds";
 import { GenerationSimulator } from "../generation/GenerationSimulator";
 import { OrderEvaluator } from "../orders/OrderEvaluator";
 import type { OrderDefinition } from "../types";
+import { produceSlowdownMultiplier, slotVramCost } from "./RoundScoreService";
 import {
   CHIP_MODULE_IDS,
   DEFAULT_PATIENCE,
@@ -15,6 +18,7 @@ import {
   type InputStation,
   type KitchenActionResult,
   type OutputStation,
+  type RoundStats,
 } from "./types";
 
 export class KitchenSession {
@@ -29,19 +33,34 @@ export class KitchenSession {
   private shelfModuleIds: string[];
   private producing = false;
   private produceTimer = 0;
+  private plannedProduceDuration = 1;
   private spawnCooldown = 0;
-  private readonly activeOrderId: string;
+  private readonly round: RoundDefinition;
+  private readonly orderQueue: string[];
+  private queueIndex = 0;
+  private vramUsed = 0;
+  private passedDeliveries = 0;
+  private failedDeliveries = 0;
+  private leftCustomers = 0;
+  private resolvedCustomers = 0;
+  private readonly assignedOrderIds: string[] = [];
+  private roundFinished = false;
+  private pendingSpend = 0;
 
-  constructor(orderId: string, unlockedModuleIds: string[], slotCount = SLOT_COUNT) {
-    this.activeOrderId = orderId;
+  constructor(roundId: string, unlockedModuleIds?: string[], slotCount = SLOT_COUNT) {
+    this.round = roundsById.get(roundId) ?? roundsById.get("r01")!;
     this.slots = Array.from({ length: slotCount }, () => null);
-    this.shelfModuleIds = unlockedModuleIds.filter((id) => (CHIP_MODULE_IDS as readonly string[]).includes(id));
+    const unlocked = unlockedModuleIds ?? this.round.availableModuleIds;
+    this.shelfModuleIds = unlocked.filter((id) => (CHIP_MODULE_IDS as readonly string[]).includes(id));
     if (!this.shelfModuleIds.includes("image-maker")) this.shelfModuleIds = ["image-maker", ...this.shelfModuleIds];
+    this.orderQueue = buildOrderQueue(this.round);
     this.spawnCustomer();
   }
 
+  get roundDefinition(): RoundDefinition { return this.round; }
   get order(): OrderDefinition {
-    return ordersById.get(this.activeOrderId) ?? ordersById.get("o01")!;
+    const orderId = this.input.order?.orderId ?? this.assignedOrderIds[0] ?? this.round.customerOrderPool[0]!;
+    return ordersById.get(orderId) ?? ordersById.get("o01")!;
   }
 
   getCarry(): CarryItem { return this.carry; }
@@ -49,13 +68,37 @@ export class KitchenSession {
   getWaitingCustomers(): Customer[] { return this.getCustomers().filter((customer) => customer.state === "waiting"); }
   getInput(): InputStation { return { order: this.input.order ? { ...this.input.order } : null }; }
   getSlots(): Array<string | null> { return [...this.slots]; }
-  getOutput(): OutputStation { return { product: this.output.product ? { ...this.output.product, result: { ...this.output.product.result }, evaluation: { ...this.output.product.evaluation, issues: [...this.output.product.evaluation.issues] } } : null }; }
+  getOutput(): OutputStation {
+    return {
+      product: this.output.product
+        ? { ...this.output.product, result: { ...this.output.product.result }, evaluation: { ...this.output.product.evaluation, issues: [...this.output.product.evaluation.issues] } }
+        : null,
+    };
+  }
   getShelfModuleIds(): string[] { return [...this.shelfModuleIds]; }
   isProducing(): boolean { return this.producing; }
   getProduceProgress(): number {
     if (!this.producing) return 0;
-    const total = Math.max(0.5, this.estimateProcessingTime());
-    return 1 - this.produceTimer / total;
+    return 1 - this.produceTimer / Math.max(this.plannedProduceDuration, 0.01);
+  }
+  getVramUsed(): number { return this.vramUsed; }
+  getVramBudget(): number { return this.round.vramBudget; }
+  getSlotVramPreview(): number { return slotVramCost(this.slots); }
+  isRoundFinished(): boolean { return this.roundFinished; }
+
+  getStats(): RoundStats {
+    return {
+      roundId: this.round.id,
+      targetCustomers: this.round.targetCustomers,
+      vramBudget: this.round.vramBudget,
+      vramUsed: this.vramUsed,
+      passedDeliveries: this.passedDeliveries,
+      failedDeliveries: this.failedDeliveries,
+      leftCustomers: this.leftCustomers,
+      resolvedCustomers: this.resolvedCustomers,
+      assignedOrderIds: [...this.assignedOrderIds],
+      finished: this.roundFinished,
+    };
   }
 
   setUnlockedModules(moduleIds: string[]): void {
@@ -63,9 +106,10 @@ export class KitchenSession {
     if (!this.shelfModuleIds.includes("image-maker")) this.shelfModuleIds = ["image-maker", ...this.shelfModuleIds];
   }
 
-  /** Advance patience / spawn / production timers. dt in seconds. */
   tick(dt: number): KitchenActionResult[] {
     const events: KitchenActionResult[] = [];
+    if (this.roundFinished) return events;
+
     if (this.producing) {
       this.produceTimer -= dt;
       if (this.produceTimer <= 0) {
@@ -81,21 +125,27 @@ export class KitchenSession {
       customer.patience = Math.max(0, customer.patience - dt);
       if (customer.patience <= 0) {
         customer.state = "left";
+        this.leftCustomers += 1;
+        this.resolvedCustomers += 1;
+        this.spawnCooldown = Math.min(this.spawnCooldown, 0.4);
         events.push({ ok: false, leftCustomerId: customer.id, message: "손님이 떠났습니다. 너무 오래 기다렸어요.", tone: "error" });
         this.clearCustomerWork(customer.id);
+        const finished = this.maybeFinishRound();
+        if (finished) events.push(finished);
       }
     }
 
     this.spawnCooldown = Math.max(0, this.spawnCooldown - dt);
-    if (this.spawnCooldown <= 0 && this.getWaitingCustomers().length < MAX_CUSTOMERS) {
+    if (this.spawnCooldown <= 0 && this.canSpawnMore() && this.getWaitingCustomers().length < MAX_CUSTOMERS) {
       this.spawnCustomer();
-      this.spawnCooldown = 8;
+      this.spawnCooldown = 2.5;
     }
 
     return events;
   }
 
   pickUpFromCustomer(customerId: string): KitchenActionResult {
+    if (this.roundFinished) return fail("라운드가 종료되었습니다.");
     if (this.carry.kind !== "none") return fail("이미 무언가를 들고 있습니다.");
     const customer = this.customers.find((item) => item.id === customerId);
     if (!customer || customer.state !== "waiting") return fail("받을 손님이 없습니다.");
@@ -125,7 +175,8 @@ export class KitchenSession {
     if (this.carry.kind !== "none") return fail("손을 비운 뒤에 모듈 칩을 집으세요.");
     if (!this.shelfModuleIds.includes(moduleId)) return fail("아직 해금되지 않은 모듈입니다.");
     this.carry = { kind: "moduleChip", moduleId };
-    return ok("모듈 칩을 집었습니다. 빈 슬롯에 꽂으세요.", "info");
+    const cost = modulesById.get(moduleId)?.vramCost ?? 0;
+    return ok(`모듈 칩을 집었습니다. (VRAM ${cost}) 빈 슬롯에 꽂으세요.`, "info");
   }
 
   interactSlot(index: number): KitchenActionResult {
@@ -136,7 +187,7 @@ export class KitchenSession {
       if (current) return fail("슬롯이 비어 있지 않습니다. 먼저 칩을 빼세요.");
       this.slots[index] = this.carry.moduleId;
       this.carry = emptyCarry();
-      return ok("모듈 칩을 슬롯에 꽂았습니다.", "info");
+      return ok(`모듈 칩을 슬롯에 꽂았습니다. 이번 생산 VRAM ${this.getSlotVramPreview()}`, "info");
     }
     if (this.carry.kind === "none" && current) {
       this.slots[index] = null;
@@ -153,9 +204,21 @@ export class KitchenSession {
     if (!this.input.order) return fail("입력기에 주문서가 없습니다.");
     const chipIds = this.slots.filter((slot): slot is string => !!slot);
     if (!chipIds.includes("image-maker")) return fail("그림 제작기 칩을 슬롯에 꽂아야 생산할 수 있습니다.");
+
+    this.pendingSpend = slotVramCost(this.slots);
+    const projectedUsed = this.vramUsed + this.pendingSpend;
+    const slowdown = produceSlowdownMultiplier(projectedUsed, this.round.vramBudget);
+    const base = Math.max(0.8, this.estimateProcessingTime(this.input.order.orderId) * 0.35);
+    this.plannedProduceDuration = base * slowdown;
+    this.produceTimer = this.plannedProduceDuration;
     this.producing = true;
-    this.produceTimer = Math.max(0.8, this.estimateProcessingTime() * 0.35);
-    return ok("생산을 시작했습니다…", "info");
+    const over = Math.max(0, projectedUsed - this.round.vramBudget);
+    return ok(
+      over > 0
+        ? `생산 시작… VRAM +${this.pendingSpend} (예산 초과! 속도 ${slowdown.toFixed(1)}x)`
+        : `생산 시작… VRAM +${this.pendingSpend}`,
+      over > 0 ? "error" : "info",
+    );
   }
 
   interactOutput(): KitchenActionResult {
@@ -170,14 +233,19 @@ export class KitchenSession {
     if (this.carry.kind !== "product") return fail("전달할 이미지가 없습니다.");
     const customer = this.customers.find((item) => item.id === customerId);
     if (!customer || customer.state !== "waiting") return fail("받을 손님이 없습니다.");
-    if (this.carry.customerId !== customer.id) {
-      return fail("이 손님의 주문이 아닙니다. 다른 손님에게 가져가세요.");
-    }
+    if (this.carry.customerId !== customer.id) return fail("이 손님의 주문이 아닙니다. 다른 손님에게 가져가세요.");
+
     const product = this.carry;
+    const orderDef = ordersById.get(product.orderId) ?? this.order;
     this.carry = emptyCarry();
     customer.state = "served";
-    const reward = product.evaluation.passed ? this.order.reward : Math.floor(this.order.reward * 0.25);
-    return {
+    this.resolvedCustomers += 1;
+    if (product.evaluation.passed) this.passedDeliveries += 1;
+    else this.failedDeliveries += 1;
+    this.spawnCooldown = Math.min(this.spawnCooldown, 0.4);
+
+    const reward = product.evaluation.passed ? Math.floor(orderDef.reward * 0.35) : Math.floor(orderDef.reward * 0.1);
+    const result: KitchenActionResult = {
       ok: product.evaluation.passed,
       tone: product.evaluation.passed ? "success" : "error",
       message: product.evaluation.passed ? `납품 성공! +${reward} 크레딧` : `조건 미달 납품… +${reward} 크레딧`,
@@ -189,33 +257,35 @@ export class KitchenSession {
         result: product.result,
       },
     };
-  }
-
-  /** Discard held chip back to nowhere (shelf is infinite supply). */
-  discardCarryChip(): KitchenActionResult {
-    if (this.carry.kind !== "moduleChip") return fail("버릴 모듈 칩이 없습니다.");
-    this.carry = emptyCarry();
-    return ok("모듈 칩을 내려놓았습니다.", "info");
+    const finished = this.maybeFinishRound();
+    if (finished) return { ...result, roundFinished: finished.roundFinished, message: `${result.message} · 라운드 종료!` };
+    return result;
   }
 
   resetLine(): void {
     this.producing = false;
     this.produceTimer = 0;
+    this.pendingSpend = 0;
     this.input.order = null;
     this.output.product = null;
     for (let i = 0; i < this.slots.length; i += 1) this.slots[i] = null;
-    if (this.carry.kind === "order" || this.carry.kind === "product" || this.carry.kind === "moduleChip") {
-      this.carry = emptyCarry();
-    }
+    if (this.carry.kind !== "none") this.carry = emptyCarry();
+  }
+
+  private canSpawnMore(): boolean {
+    return this.queueIndex < this.orderQueue.length;
   }
 
   private spawnCustomer(): void {
-    if (this.getWaitingCustomers().length >= MAX_CUSTOMERS) return;
+    if (!this.canSpawnMore() || this.getWaitingCustomers().length >= MAX_CUSTOMERS) return;
+    const orderId = this.orderQueue[this.queueIndex]!;
+    this.queueIndex += 1;
     this.customerSequence += 1;
+    this.assignedOrderIds.push(orderId);
     this.customers.push({
       id: `customer-${this.customerSequence}`,
-      orderId: this.activeOrderId,
-      prompt: pickPromptForOrder(this.activeOrderId, this.customerSequence),
+      orderId,
+      prompt: pickPromptForOrder(orderId, this.customerSequence),
       patience: DEFAULT_PATIENCE,
       maxPatience: DEFAULT_PATIENCE,
       state: "waiting",
@@ -223,19 +293,22 @@ export class KitchenSession {
     });
   }
 
-  private estimateProcessingTime(): number {
+  private estimateProcessingTime(orderId: string): number {
     const chipIds = this.slots.filter((slot): slot is string => !!slot);
-    const pipeline = ["order-input", ...chipIds, "delivery-bay"];
-    return this.simulator.simulate(this.order, pipeline).processingTime;
+    const order = ordersById.get(orderId) ?? this.order;
+    return this.simulator.simulate(order, ["order-input", ...chipIds, "delivery-bay"]).processingTime;
   }
 
   private finishProduction(): KitchenActionResult | null {
     if (!this.input.order) return fail("생산할 주문서가 사라졌습니다.");
     const orderSlip = this.input.order;
     const chipIds = this.slots.filter((slot): slot is string => !!slot);
-    const pipeline = ["order-input", ...chipIds, "delivery-bay"];
-    const result = this.simulator.simulate(this.order, pipeline);
-    const evaluation = this.evaluator.evaluate(this.order, result);
+    const order = ordersById.get(orderSlip.orderId) ?? this.order;
+    const result = this.simulator.simulate(order, ["order-input", ...chipIds, "delivery-bay"]);
+    const evaluation = this.evaluator.evaluate(order, result);
+    const spend = this.pendingSpend || slotVramCost(this.slots);
+    this.vramUsed += spend;
+    this.pendingSpend = 0;
     const product: CarryProduct = {
       kind: "product",
       orderId: orderSlip.orderId,
@@ -243,10 +316,29 @@ export class KitchenSession {
       prompt: orderSlip.prompt,
       result,
       evaluation,
+      vramSpend: spend,
     };
     this.input.order = null;
     this.output.product = product;
-    return ok(evaluation.passed ? "완성품이 출구에 나왔습니다!" : "이미지가 나왔지만 조건이 부족할 수 있습니다.", evaluation.passed ? "success" : "info");
+    const over = Math.max(0, this.vramUsed - this.round.vramBudget);
+    return ok(
+      evaluation.passed
+        ? `완성품 출구 도착! (누적 VRAM ${this.vramUsed}/${this.round.vramBudget})`
+        : `이미지 출구 도착. 조건 부족 가능 (VRAM ${this.vramUsed}/${this.round.vramBudget}${over ? `, 초과 ${over}` : ""})`,
+      evaluation.passed ? "success" : "info",
+    );
+  }
+
+  private maybeFinishRound(): KitchenActionResult | null {
+    if (this.roundFinished) return null;
+    if (this.resolvedCustomers < this.round.targetCustomers) return null;
+    this.roundFinished = true;
+    return {
+      ok: true,
+      tone: "success",
+      message: "라운드 종료! 효율 점수를 확인하세요.",
+      roundFinished: this.getStats(),
+    };
   }
 
   private clearCustomerWork(customerId: string): void {
@@ -255,6 +347,21 @@ export class KitchenSession {
     if (this.input.order?.customerId === customerId) this.input.order = null;
     if (this.output.product?.customerId === customerId) this.output.product = null;
   }
+}
+
+function buildOrderQueue(round: RoundDefinition): string[] {
+  const pool = round.customerOrderPool;
+  const queue: string[] = [];
+  for (let i = 0; i < round.targetCustomers; i += 1) {
+    queue.push(pool[i % pool.length]!);
+  }
+  // Prefer variety: shuffle lightly by rotating later slots
+  if (pool.length > 1 && queue.length > 2) {
+    const mid = queue[1]!;
+    queue[1] = queue[queue.length - 1]!;
+    queue[queue.length - 1] = mid;
+  }
+  return queue;
 }
 
 function ok(message: string, tone: "info" | "success" | "error" = "info"): KitchenActionResult {

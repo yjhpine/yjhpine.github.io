@@ -1,5 +1,12 @@
 # Progress
 
+## 2026-07-31
+
+- 라운드·VRAM·효율 점수(1B+2B)를 구현했다.
+- 추가: `rounds.ts`, `RoundScoreService`, HUD VRAM/손님 수, 라운드 정산 모달, save v2.
+- KitchenSession이 목표 손님 쿼터·생산 시 VRAM 소모·초과 슬로우다운을 처리한다.
+- typecheck / test(12) / build 통과.
+
 ## 2026-07-30
 
 - 공장 그래프 배치 게임을 **Overcooked형 운반 루프(1A) + 모듈 칩 슬롯(2B)** 으로 전면 개편했다.

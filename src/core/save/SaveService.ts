@@ -1,7 +1,7 @@
 import type { SaveData } from "../types";
 import { ProgressionService } from "../progression/ProgressionService";
 
-const STORAGE_KEY = "ai-factory-save-v1";
+const STORAGE_KEY = "ai-factory-save-v2";
 
 export interface StorageAdapter {
   getItem(key: string): string | null;
@@ -14,14 +14,36 @@ export class SaveService {
 
   load(): ProgressionService {
     try {
-      const raw = this.storage.getItem(STORAGE_KEY);
+      const raw = this.storage.getItem(STORAGE_KEY) ?? this.storage.getItem("ai-factory-save-v1");
       if (!raw) return ProgressionService.createDefault();
-      const parsed = JSON.parse(raw) as Partial<SaveData>;
-      if (parsed.version !== 1 || !Array.isArray(parsed.completedOrderIds) || !Array.isArray(parsed.unlockedModuleIds) || typeof parsed.credits !== "number" || typeof parsed.activeOrderId !== "string") return ProgressionService.createDefault();
-      return new ProgressionService(parsed as SaveData);
-    } catch { return ProgressionService.createDefault(); }
+      const parsed = JSON.parse(raw) as Partial<SaveData> & { version?: number; activeOrderId?: string; completedOrderIds?: string[] };
+      if (parsed.version === 2
+        && Array.isArray(parsed.completedRoundIds)
+        && Array.isArray(parsed.unlockedModuleIds)
+        && typeof parsed.credits === "number"
+        && typeof parsed.activeRoundId === "string") {
+        return new ProgressionService({
+          version: 2,
+          credits: parsed.credits,
+          completedRoundIds: parsed.completedRoundIds,
+          unlockedModuleIds: parsed.unlockedModuleIds,
+          tutorialStage: typeof parsed.tutorialStage === "number" ? parsed.tutorialStage : 1,
+          activeRoundId: parsed.activeRoundId,
+          bestRoundScores: parsed.bestRoundScores ?? {},
+        });
+      }
+      return ProgressionService.createDefault();
+    } catch {
+      return ProgressionService.createDefault();
+    }
   }
 
-  save(progression: ProgressionService): void { this.storage.setItem(STORAGE_KEY, JSON.stringify(progression.snapshot)); }
-  clear(): void { this.storage.removeItem(STORAGE_KEY); }
+  save(progression: ProgressionService): void {
+    this.storage.setItem(STORAGE_KEY, JSON.stringify(progression.snapshot));
+  }
+
+  clear(): void {
+    this.storage.removeItem(STORAGE_KEY);
+    this.storage.removeItem("ai-factory-save-v1");
+  }
 }

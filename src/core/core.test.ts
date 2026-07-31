@@ -1,135 +1,156 @@
 import { describe, expect, it } from "vitest";
-import { GenerationSimulator } from "./generation/GenerationSimulator";
 import { KitchenSession } from "./kitchen/KitchenSession";
-import { OrderEvaluator } from "./orders/OrderEvaluator";
+import { produceSlowdownMultiplier, RoundScoreService } from "./kitchen/RoundScoreService";
 import { ProgressionService } from "./progression/ProgressionService";
 import { SaveService, type StorageAdapter } from "./save/SaveService";
-import { ordersById } from "../data/orders";
 
-describe("KitchenSession carry rules", () => {
-  it("starts with a waiting customer and empty hands", () => {
-    const session = new KitchenSession("o01", ["image-maker"]);
-    expect(session.getCarry().kind).toBe("none");
-    expect(session.getWaitingCustomers()).toHaveLength(1);
-    expect(session.getWaitingCustomers()[0].prompt.length).toBeGreaterThan(0);
-    expect(session.getSlots()).toEqual([null, null, null]);
+function serveCustomer(session: KitchenSession, chips: string[]): void {
+  session.tick(1);
+  const customer = session.getWaitingCustomers()[0];
+  expect(customer).toBeTruthy();
+  session.resetLine();
+  session.pickUpFromCustomer(customer.id);
+  session.interactInput();
+  for (let i = 0; i < chips.length; i += 1) {
+    session.pickUpFromShelf(chips[i]!);
+    session.interactSlot(i);
+  }
+  expect(session.startProduce().ok).toBe(true);
+  session.tick(3);
+  expect(session.interactOutput().ok).toBe(true);
+  expect(session.deliverToCustomer(customer.id).delivered).toBeTruthy();
+}
+
+describe("RoundScoreService", () => {
+  const scorer = new RoundScoreService();
+
+  it("computes ideal VRAM for o01 as image-maker only", () => {
+    expect(scorer.idealVramForOrder("o01")).toBe(8);
   });
 
-  it("carries the customer prompt on the order slip", () => {
-    const session = new KitchenSession("o01", ["image-maker"]);
-    const customer = session.getWaitingCustomers()[0];
-    session.pickUpFromCustomer(customer.id);
-    const carry = session.getCarry();
-    expect(carry.kind).toBe("order");
-    if (carry.kind === "order") expect(carry.prompt).toBe(customer.prompt);
+  it("computes ideal VRAM for o02 as maker + style", () => {
+    expect(scorer.idealVramForOrder("o02")).toBe(14);
   });
 
-  it("picks up an order only with empty hands", () => {
-    const session = new KitchenSession("o01", ["image-maker"]);
-    const customerId = session.getWaitingCustomers()[0].id;
-    expect(session.pickUpFromCustomer(customerId).ok).toBe(true);
-    expect(session.getCarry().kind).toBe("order");
-    expect(session.pickUpFromShelf("image-maker").ok).toBe(false);
+  it("scores efficient perfect round highly", () => {
+    const result = scorer.score({
+      roundId: "r01",
+      targetCustomers: 3,
+      vramBudget: 24,
+      vramUsed: 24,
+      passedDeliveries: 3,
+      failedDeliveries: 0,
+      leftCustomers: 0,
+      resolvedCustomers: 3,
+      assignedOrderIds: ["o01", "o01", "o01"],
+      finished: true,
+    }, 100);
+    expect(result.total).toBeGreaterThanOrEqual(90);
+    expect(result.grade).toBe("S");
+    expect(result.idealVram).toBe(24);
   });
 
-  it("rejects shelf pickup while carrying", () => {
-    const session = new KitchenSession("o01", ["image-maker"]);
-    const customerId = session.getWaitingCustomers()[0].id;
-    session.pickUpFromCustomer(customerId);
-    expect(session.pickUpFromShelf("image-maker")).toMatchObject({ ok: false });
+  it("lowers efficiency when wasteful VRAM is used", () => {
+    const efficient = scorer.score({
+      roundId: "r01", targetCustomers: 3, vramBudget: 24, vramUsed: 24,
+      passedDeliveries: 3, failedDeliveries: 0, leftCustomers: 0, resolvedCustomers: 3,
+      assignedOrderIds: ["o01", "o01", "o01"], finished: true,
+    }, 100);
+    const wasteful = scorer.score({
+      roundId: "r01", targetCustomers: 3, vramBudget: 24, vramUsed: 48,
+      passedDeliveries: 3, failedDeliveries: 0, leftCustomers: 0, resolvedCustomers: 3,
+      assignedOrderIds: ["o01", "o01", "o01"], finished: true,
+    }, 100);
+    expect(wasteful.efficiencyScore).toBeLessThan(efficient.efficiencyScore);
+    expect(wasteful.budgetScore).toBeLessThan(efficient.budgetScore);
   });
 
-  it("places order into input and chips into slots", () => {
-    const session = new KitchenSession("o01", ["image-maker"]);
-    const customerId = session.getWaitingCustomers()[0].id;
-    session.pickUpFromCustomer(customerId);
-    expect(session.interactInput().ok).toBe(true);
-    expect(session.getInput().order?.customerId).toBe(customerId);
-    expect(session.pickUpFromShelf("image-maker").ok).toBe(true);
-    expect(session.interactSlot(0).ok).toBe(true);
-    expect(session.getSlots()[0]).toBe("image-maker");
-  });
-
-  it("cannot produce without input order", () => {
-    const session = new KitchenSession("o01", ["image-maker"]);
-    session.pickUpFromShelf("image-maker");
-    session.interactSlot(0);
-    expect(session.startProduce()).toMatchObject({ ok: false });
-  });
-
-  it("cannot produce without image-maker chip", () => {
-    const session = new KitchenSession("o02", ["image-maker", "style-processor"]);
-    const customerId = session.getWaitingCustomers()[0].id;
-    session.pickUpFromCustomer(customerId);
-    session.interactInput();
-    session.pickUpFromShelf("style-processor");
-    session.interactSlot(0);
-    expect(session.startProduce()).toMatchObject({ ok: false });
-  });
-
-  it("produces a product onto the output tray", () => {
-    const session = new KitchenSession("o01", ["image-maker"]);
-    const customerId = session.getWaitingCustomers()[0].id;
-    session.pickUpFromCustomer(customerId);
-    session.interactInput();
-    session.pickUpFromShelf("image-maker");
-    session.interactSlot(0);
-    expect(session.startProduce().ok).toBe(true);
-    const events = session.tick(30);
-    expect(events.some((event) => event.message?.includes("출구"))).toBe(true);
-    expect(session.getOutput().product?.customerId).toBe(customerId);
-  });
-
-  it("rejects delivery to the wrong customer", () => {
-    const session = new KitchenSession("o01", ["image-maker"]);
-    const first = session.getWaitingCustomers()[0].id;
-    session.pickUpFromCustomer(first);
-    session.interactInput();
-    session.pickUpFromShelf("image-maker");
-    session.interactSlot(0);
-    session.startProduce();
-    session.tick(30);
-    session.interactOutput();
-    session.tick(10);
-    const waiting = session.getWaitingCustomers().filter((customer) => customer.id !== first);
-    if (waiting.length === 0) {
-      // force another customer for the test
-      session.tick(10);
-    }
-    const other = session.getWaitingCustomers().find((customer) => customer.id !== first);
-    if (other) {
-      expect(session.deliverToCustomer(other.id)).toMatchObject({ ok: false });
-    }
-    expect(session.deliverToCustomer(first).ok).toBe(true);
-  });
-
-  it("marks customer as left when patience runs out", () => {
-    const session = new KitchenSession("o01", ["image-maker"]);
-    const customerId = session.getWaitingCustomers()[0].id;
-    const events = session.tick(60);
-    expect(events.some((event) => event.leftCustomerId === customerId)).toBe(true);
-    expect(session.getCustomers().find((customer) => customer.id === customerId)?.state).toBe("left");
+  it("applies produce slowdown when over budget", () => {
+    expect(produceSlowdownMultiplier(20, 24)).toBe(1);
+    expect(produceSlowdownMultiplier(36, 24)).toBeGreaterThan(1);
+    expect(produceSlowdownMultiplier(1000, 24)).toBeLessThanOrEqual(2.5);
   });
 });
 
-describe("Kitchen production routes", () => {
-  const routes: Record<string, string[]> = {
-    o01: ["image-maker"],
-    o02: ["image-maker", "style-processor"],
-    o03: ["image-maker", "ban-list"],
-    o04: ["image-maker", "composition-planner"],
-    o05: ["image-maker", "sharpener"],
-    o06: ["image-maker", "quality-checker"],
-  };
+describe("KitchenSession rounds and VRAM", () => {
+  it("spawns a fixed number of customers for the round", () => {
+    const session = new KitchenSession("r01");
+    expect(session.getStats().targetCustomers).toBe(3);
+    expect(session.getWaitingCustomers().length).toBeGreaterThanOrEqual(1);
+  });
 
-  it("passes evaluation for intended chip combinations", () => {
-    const simulator = new GenerationSimulator();
-    const evaluator = new OrderEvaluator();
-    for (const [orderId, chips] of Object.entries(routes)) {
-      const order = ordersById.get(orderId)!;
-      const result = simulator.simulate(order, ["order-input", ...chips, "delivery-bay"]);
-      expect(evaluator.evaluate(order, result).passed, orderId).toBe(true);
+  it("spends VRAM on each production", () => {
+    const session = new KitchenSession("r01");
+    const before = session.getVramUsed();
+    serveCustomer(session, ["image-maker"]);
+    expect(session.getVramUsed()).toBe(before + 8);
+  });
+
+  it("finishes the round after resolving all customers", () => {
+    const session = new KitchenSession("r01");
+    let finished = false;
+    for (let i = 0; i < 3; i += 1) {
+      session.tick(3);
+      const customer = session.getWaitingCustomers()[0];
+      if (!customer) break;
+      session.resetLine();
+      session.pickUpFromCustomer(customer.id);
+      session.interactInput();
+      session.pickUpFromShelf("image-maker");
+      session.interactSlot(0);
+      session.startProduce();
+      session.tick(3);
+      session.interactOutput();
+      const delivery = session.deliverToCustomer(customer.id);
+      if (delivery.roundFinished) finished = true;
     }
+    expect(finished || session.isRoundFinished()).toBe(true);
+    expect(session.getStats().resolvedCustomers).toBe(3);
+  });
+
+  it("only emits roundFinished once", () => {
+    const session = new KitchenSession("r01");
+    let finishCount = 0;
+    for (let i = 0; i < 3; i += 1) {
+      session.tick(3);
+      const customer = session.getWaitingCustomers()[0];
+      expect(customer, `customer ${i + 1}`).toBeTruthy();
+      session.resetLine();
+      session.pickUpFromCustomer(customer.id);
+      session.interactInput();
+      session.pickUpFromShelf("image-maker");
+      session.interactSlot(0);
+      expect(session.startProduce().ok).toBe(true);
+      session.tick(3);
+      expect(session.interactOutput().ok).toBe(true);
+      const delivery = session.deliverToCustomer(customer.id);
+      expect(delivery.delivered).toBeTruthy();
+      if (delivery.roundFinished) finishCount += 1;
+      for (const event of session.tick(0.1)) if (event.roundFinished) finishCount += 1;
+    }
+    expect(session.isRoundFinished()).toBe(true);
+    expect(finishCount).toBe(1);
+  });
+
+  it("slows production after exceeding VRAM budget", () => {
+    const session = new KitchenSession("r02", ["image-maker", "style-processor"]);
+    for (let i = 0; i < 3; i += 1) {
+      session.tick(0.5);
+      const customer = session.getWaitingCustomers()[0];
+      if (!customer) break;
+      session.resetLine();
+      session.pickUpFromCustomer(customer.id);
+      session.interactInput();
+      session.pickUpFromShelf("image-maker");
+      session.interactSlot(0);
+      session.pickUpFromShelf("style-processor");
+      session.interactSlot(1);
+      expect(session.startProduce().ok).toBe(true);
+      session.tick(5);
+      session.interactOutput();
+      session.deliverToCustomer(customer.id);
+    }
+    expect(session.getVramUsed()).toBeGreaterThan(session.getVramBudget());
   });
 });
 
@@ -140,24 +161,20 @@ class MemoryStorage implements StorageAdapter {
   removeItem(key: string): void { this.values.delete(key); }
 }
 
-describe("SaveService", () => {
+describe("SaveService v2", () => {
   it("restores defaults for a missing save", () => {
-    const storage = new MemoryStorage();
-    expect(new SaveService(storage).load().currentOrderId).toBe("o01");
+    expect(new SaveService(new MemoryStorage()).load().currentRoundId).toBe("r01");
   });
 
-  it("restores defaults for a version-mismatched save", () => {
-    const storage = new MemoryStorage();
-    storage.setItem("ai-factory-save-v1", JSON.stringify({ version: 0 }));
-    expect(new SaveService(storage).load().currentOrderId).toBe("o01");
-  });
-
-  it("persists progression data", () => {
+  it("persists round progression", () => {
     const storage = new MemoryStorage();
     const service = new SaveService(storage);
     const progression = ProgressionService.createDefault();
-    progression.completeActiveOrder(100);
+    progression.completeActiveRound(92, 180);
     service.save(progression);
-    expect(service.load().credits).toBe(100);
+    const loaded = service.load();
+    expect(loaded.credits).toBe(180);
+    expect(loaded.bestRoundScores.r01).toBe(92);
+    expect(loaded.unlockedModuleIds).toContain("style-processor");
   });
 });

@@ -1,0 +1,14 @@
+제목: 7월31일 라운드 VRAM 효율점수 구현
+
+작업 일시: 2026-07-31
+
+변경 요약
+- O01~O06을 라운드 R01~R06으로 재구성 (목표 손님 수 + VRAM 예산)
+- 모듈별 vramCost, 생산마다 VRAM 누적 소모 (2B)
+- 예산 초과 시 생산 슬로우다운 + 정산 페널티 (1B)
+- RoundScoreService: 납품/효율/이탈/예산 → S~D 등급
+- HUD에 손님 진행·VRAM, 라운드 종료 정산 모달
+- 저장 version 2
+
+검증
+- npm run typecheck / test(12) / build 통과
