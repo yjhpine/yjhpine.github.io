@@ -102,7 +102,7 @@ export class KitchenSession {
     if (customer.orderTaken) return fail("이미 이 손님의 주문서를 가져갔습니다.");
     customer.orderTaken = true;
     this.carry = { kind: "order", orderId: customer.orderId, customerId: customer.id, prompt: customer.prompt };
-    return ok("주문서를 집어 들었습니다. Tab으로 프롬프트를 확인하세요.", "info");
+    return ok("주문서를 집어 들었습니다. X로 프롬프트를 확인하세요.", "info");
   }
 
   interactInput(): KitchenActionResult {
@@ -163,7 +163,7 @@ export class KitchenSession {
     if (!this.output.product) return fail("출구에 완성품이 없습니다.");
     this.carry = this.output.product;
     this.output.product = null;
-    return ok("완성 이미지를 집었습니다. Tab으로 확인하고 손님에게 전달하세요.", "info");
+    return ok("완성 이미지를 집었습니다. X로 확인하고 손님에게 전달하세요.", "info");
   }
 
   deliverToCustomer(customerId: string): KitchenActionResult {

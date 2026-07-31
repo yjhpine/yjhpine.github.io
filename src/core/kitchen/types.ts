@@ -10,7 +10,7 @@ export interface CarryOrder {
   kind: "order";
   orderId: string;
   customerId: string;
-  /** Customer-written prompt text shown when inspecting with Tab. */
+  /** Customer-written prompt text shown when inspecting with X. */
   prompt: string;
 }
 

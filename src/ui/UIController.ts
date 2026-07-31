@@ -112,7 +112,7 @@ export class UIController {
     if (!this.session) return;
     const carry = this.session.getCarry();
     if (carry.kind !== "order" && carry.kind !== "product") {
-      this.showNotice("프롬프트나 이미지를 들고 있을 때 Tab으로 확인할 수 있습니다.", "info");
+      this.showNotice("프롬프트나 이미지를 들고 있을 때 X로 확인할 수 있습니다.", "info");
       return;
     }
     this.inspectOpen = true;
@@ -150,7 +150,7 @@ export class UIController {
           <span>${escapeHtml(carry.evaluation.summary)}</span>
         </div>
         ${scoreGrid(carry.result)}
-        <p class="inspect-hint">맞는 손님에게 전달하세요. Tab으로 닫습니다.</p>`;
+        <p class="inspect-hint">맞는 손님에게 전달하세요. X로 닫습니다.</p>`;
       return;
     }
     this.closeInspect();
@@ -213,9 +213,9 @@ export class UIController {
 
 function carryLabel(carry: CarryItem): string {
   if (carry.kind === "none") return "손: 비움";
-  if (carry.kind === "order") return "손: 주문서 📜 (Tab 확인)";
+  if (carry.kind === "order") return "손: 주문서 📜 (X 확인)";
   if (carry.kind === "moduleChip") return `손: ${modulesById.get(carry.moduleId)?.displayName ?? "칩"} ${modulesById.get(carry.moduleId)?.iconKey ?? ""}`;
-  return "손: 이미지 🖼️ (Tab 확인)";
+  return "손: 이미지 🖼️ (X 확인)";
 }
 
 function escapeHtml(value: string): string {
@@ -251,7 +251,7 @@ function shell(): string {
       <button id="start-game" class="primary">새 게임 시작</button>
       <button id="continue-game" class="secondary">이어서 하기</button>
     </div>
-    <p class="menu-note">WASD 이동 · E 상호작용 · Tab으로 프롬프트/이미지 확인</p>
+    <p class="menu-note">WASD 이동 · Z 상호작용 · C 대시 · X로 프롬프트/이미지 확인</p>
   </section>
   <section id="game-screen" class="game-screen is-hidden">
     <header class="topbar">
@@ -284,16 +284,16 @@ function shell(): string {
             <h2>오버쿡드 공장</h2>
             <p>손님 주문서 → 입력기 → 칩 슬롯 → 생산 → 출구 → 손님</p>
           </div>
-          <div class="controls-chip">WASD 이동 · E 상호작용 · Tab 들여다보기</div>
+          <div class="controls-chip">WASD 이동 · Z 상호작용 · C 대시 · X 들여다보기</div>
         </div>
         <div id="game-canvas" class="game-canvas" aria-label="주방 공장 공간"></div>
-        <p class="canvas-help">주문서나 이미지를 든 채 Tab을 누르면 프롬프트/결과를 확인할 수 있습니다.</p>
+        <p class="canvas-help">주문서나 이미지를 든 채 X를 누르면 프롬프트/결과를 확인할 수 있습니다. C로 짧게 대시합니다.</p>
       </section>
     </div>
   </section>
   <div id="inspect-modal" class="inspect-modal is-hidden" role="dialog" aria-modal="true" aria-label="들여다보기">
     <div class="inspect-card">
-      <button id="inspect-close" class="ghost inspect-close" type="button">닫기 (Tab)</button>
+      <button id="inspect-close" class="ghost inspect-close" type="button">닫기 (X)</button>
       <div id="inspect-body"></div>
     </div>
   </div>

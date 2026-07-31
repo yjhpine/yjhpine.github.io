@@ -30,6 +30,9 @@ interface StationZone {
 }
 
 const SPEED = 220;
+const DASH_SPEED = 780;
+const DASH_DURATION = 0.12;
+const DASH_COOLDOWN = 0.55;
 const INTERACT_RANGE = 70;
 const MAP_W = 960;
 const MAP_H = 540;
@@ -51,6 +54,12 @@ export class KitchenScene extends Phaser.Scene {
   private highlight?: Phaser.GameObjects.Rectangle;
   private floor!: Phaser.GameObjects.Graphics;
   private interactReady = true;
+  private facingX = 0;
+  private facingY = -1;
+  private dashTimer = 0;
+  private dashCooldown = 0;
+  private dashDirX = 0;
+  private dashDirY = -1;
 
   constructor() { super("Kitchen"); }
 
@@ -72,12 +81,9 @@ export class KitchenScene extends Phaser.Scene {
     this.keyA = keyboard.addKey("A");
     this.keyS = keyboard.addKey("S");
     this.keyD = keyboard.addKey("D");
-    keyboard.on("keydown-E", () => this.tryInteract());
-    keyboard.on("keydown-SPACE", () => this.tryInteract());
-    keyboard.on("keydown-TAB", (event: KeyboardEvent) => {
-      event.preventDefault();
-      this.eventBus.emit("inspectToggle", undefined);
-    });
+    keyboard.on("keydown-Z", () => this.tryInteract());
+    keyboard.on("keydown-X", () => this.eventBus.emit("inspectToggle", undefined));
+    keyboard.on("keydown-C", () => this.tryDash());
 
     this.game.events.emit("kitchen-ready", this);
   }
@@ -96,6 +102,7 @@ export class KitchenScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     if (!this.session) return;
     const dt = delta / 1000;
+    this.dashCooldown = Math.max(0, this.dashCooldown - dt);
     this.movePlayer(dt);
     for (const event of this.session.tick(dt)) this.handleSessionEvent(event);
     this.syncCustomers();
@@ -104,20 +111,60 @@ export class KitchenScene extends Phaser.Scene {
     this.updateHighlight();
   }
 
+  private tryDash(): void {
+    if (!this.session || this.dashCooldown > 0 || this.dashTimer > 0) return;
+    const input = this.readMoveInput();
+    if (input.x !== 0 || input.y !== 0) {
+      const len = Math.hypot(input.x, input.y);
+      this.dashDirX = input.x / len;
+      this.dashDirY = input.y / len;
+      this.facingX = this.dashDirX;
+      this.facingY = this.dashDirY;
+    } else {
+      this.dashDirX = this.facingX;
+      this.dashDirY = this.facingY;
+    }
+    this.dashTimer = DASH_DURATION;
+    this.dashCooldown = DASH_COOLDOWN;
+    this.playerBody.setFillStyle(0xffffff);
+    this.tweens.add({
+      targets: this.player,
+      scaleX: 1.12,
+      scaleY: 0.9,
+      duration: 80,
+      yoyo: true,
+      onComplete: () => this.playerBody.setFillStyle(0xf7d047),
+    });
+  }
+
+  private readMoveInput(): { x: number; y: number } {
+    let x = 0;
+    let y = 0;
+    if (this.cursors.left.isDown || this.keyA.isDown) x -= 1;
+    if (this.cursors.right.isDown || this.keyD.isDown) x += 1;
+    if (this.cursors.up.isDown || this.keyW.isDown) y -= 1;
+    if (this.cursors.down.isDown || this.keyS.isDown) y += 1;
+    return { x, y };
+  }
+
   private movePlayer(dt: number): void {
     let vx = 0;
     let vy = 0;
-    if (this.cursors.left.isDown || this.keyA.isDown) vx -= 1;
-    if (this.cursors.right.isDown || this.keyD.isDown) vx += 1;
-    if (this.cursors.up.isDown || this.keyW.isDown) vy -= 1;
-    if (this.cursors.down.isDown || this.keyS.isDown) vy += 1;
-    if (vx === 0 && vy === 0) return;
-    const len = Math.hypot(vx, vy);
-    vx = (vx / len) * SPEED * dt;
-    vy = (vy / len) * SPEED * dt;
+    if (this.dashTimer > 0) {
+      this.dashTimer = Math.max(0, this.dashTimer - dt);
+      vx = this.dashDirX * DASH_SPEED * dt;
+      vy = this.dashDirY * DASH_SPEED * dt;
+    } else {
+      const input = this.readMoveInput();
+      if (input.x === 0 && input.y === 0) return;
+      const len = Math.hypot(input.x, input.y);
+      this.facingX = input.x / len;
+      this.facingY = input.y / len;
+      vx = this.facingX * SPEED * dt;
+      vy = this.facingY * SPEED * dt;
+    }
     let nx = Phaser.Math.Clamp(this.player.x + vx, 30, MAP_W - 30);
     let ny = Phaser.Math.Clamp(this.player.y + vy, 80, MAP_H - 30);
-    // Soft block against solid station rects
     for (const zone of this.zones) {
       if (zone.target.kind === "customer" || zone.target.kind === "shelf") continue;
       const near = Math.abs(nx - zone.x) < zone.w / 2 + 16 && Math.abs(ny - zone.y) < zone.h / 2 + 16;
