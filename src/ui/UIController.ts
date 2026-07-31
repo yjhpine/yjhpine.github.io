@@ -278,16 +278,8 @@ function shell(): string {
         <ul id="shelf-guide" class="shelf-guide"></ul>
       </aside>
       <section class="factory-column">
-        <div class="order-card kitchen-card">
-          <div>
-            <span class="eyebrow">조작</span>
-            <h2>오버쿡드 공장</h2>
-            <p>손님 주문서 → 입력기 → 칩 슬롯 → 생산 → 출구 → 손님</p>
-          </div>
-          <div class="controls-chip">WASD 이동 · Z 상호작용 · C 대시 · X 들여다보기</div>
-        </div>
         <div id="game-canvas" class="game-canvas" aria-label="주방 공장 공간"></div>
-        <p class="canvas-help">주문서나 이미지를 든 채 X를 누르면 프롬프트/결과를 확인할 수 있습니다. C로 짧게 대시합니다.</p>
+        <p class="canvas-help">WASD 이동 · Z 상호작용 · C 대시 · X 들여다보기</p>
       </section>
     </div>
   </section>
