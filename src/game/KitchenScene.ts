@@ -9,6 +9,7 @@ type SceneEvents = {
   sessionChanged: void;
   delivered: NonNullable<KitchenActionResult["delivered"]>;
   customerLeft: string;
+  inspectToggle: void;
 };
 
 type InteractTarget =
@@ -73,6 +74,10 @@ export class KitchenScene extends Phaser.Scene {
     this.keyD = keyboard.addKey("D");
     keyboard.on("keydown-E", () => this.tryInteract());
     keyboard.on("keydown-SPACE", () => this.tryInteract());
+    keyboard.on("keydown-TAB", (event: KeyboardEvent) => {
+      event.preventDefault();
+      this.eventBus.emit("inspectToggle", undefined);
+    });
 
     this.game.events.emit("kitchen-ready", this);
   }

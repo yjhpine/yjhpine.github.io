@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { KitchenSession } from "../core/kitchen/KitchenSession";
+import type { CarryItem } from "../core/kitchen/types";
 import type { GenerationResult, OrderDefinition, QualityScores } from "../core/types";
 import { SaveService } from "../core/save/SaveService";
 import { ProgressionService } from "../core/progression/ProgressionService";
@@ -12,8 +13,7 @@ export class UIController {
   private progression: ProgressionService;
   private scene: KitchenScene | undefined;
   private session: KitchenSession | undefined;
-  private priorResult: GenerationResult | undefined;
-  private currentResult: GenerationResult | undefined;
+  private inspectOpen = false;
 
   constructor(private readonly root: HTMLElement) {
     this.progression = this.saveService.load();
@@ -32,9 +32,13 @@ export class UIController {
     if (this.scene === scene) return;
     this.scene = scene;
     scene.eventBus.on("notice", ({ message, tone }) => this.showNotice(message, tone));
-    scene.eventBus.on("sessionChanged", () => this.renderHud());
+    scene.eventBus.on("sessionChanged", () => {
+      this.renderHud();
+      if (this.inspectOpen) this.renderInspect();
+    });
     scene.eventBus.on("delivered", (payload) => this.onDelivered(payload));
     scene.eventBus.on("customerLeft", () => this.renderHud());
+    scene.eventBus.on("inspectToggle", () => this.toggleInspect());
   }
 
   private bindDom(): void {
@@ -45,8 +49,13 @@ export class UIController {
     this.byId<HTMLButtonElement>("back-to-menu").addEventListener("click", () => this.showMenu());
     this.byId<HTMLButtonElement>("reset-line").addEventListener("click", () => {
       this.session?.resetLine();
+      this.closeInspect();
       this.renderHud();
       this.showNotice("생산 라인을 비웠습니다.", "info");
+    });
+    this.byId<HTMLButtonElement>("inspect-close").addEventListener("click", () => this.closeInspect());
+    this.byId("inspect-modal").addEventListener("click", (event) => {
+      if (event.target === this.byId("inspect-modal")) this.closeInspect();
     });
   }
 
@@ -57,14 +66,13 @@ export class UIController {
       this.saveService.save(this.progression);
     }
     this.session = new KitchenSession(this.progression.currentOrderId, this.progression.unlockedModuleIds);
-    this.priorResult = undefined;
-    this.currentResult = undefined;
+    this.closeInspect();
     this.scene.loadSession(this.session);
     this.byId("menu-screen").classList.add("is-hidden");
     this.byId("game-screen").classList.remove("is-hidden");
     this.renderOrder();
     this.renderHud();
-    this.clearResult();
+    this.byId<HTMLButtonElement>("next-order").hidden = true;
   }
 
   private renderMenu(): void {
@@ -93,16 +101,63 @@ export class UIController {
     const waiting = this.session.getWaitingCustomers().length;
     this.byId("credits").textContent = `${this.progression.credits} C`;
     this.byId("waiting-count").textContent = `대기 ${waiting}명`;
-    this.byId("carry-status").textContent =
-      carry.kind === "none" ? "손: 비움"
-        : carry.kind === "order" ? "손: 주문서 📜"
-          : carry.kind === "moduleChip" ? `손: ${modulesById.get(carry.moduleId)?.displayName ?? "칩"} ${modulesById.get(carry.moduleId)?.iconKey ?? ""}`
-            : "손: 완성 이미지 🖼️";
+    this.byId("carry-status").textContent = carryLabel(carry);
+  }
+
+  private toggleInspect(): void {
+    if (this.inspectOpen) {
+      this.closeInspect();
+      return;
+    }
+    if (!this.session) return;
+    const carry = this.session.getCarry();
+    if (carry.kind !== "order" && carry.kind !== "product") {
+      this.showNotice("프롬프트나 이미지를 들고 있을 때 Tab으로 확인할 수 있습니다.", "info");
+      return;
+    }
+    this.inspectOpen = true;
+    this.renderInspect();
+    this.byId("inspect-modal").classList.remove("is-hidden");
+  }
+
+  private closeInspect(): void {
+    this.inspectOpen = false;
+    this.byId("inspect-modal").classList.add("is-hidden");
+    this.byId("inspect-body").innerHTML = "";
+  }
+
+  private renderInspect(): void {
+    if (!this.session) return;
+    const carry = this.session.getCarry();
+    const body = this.byId("inspect-body");
+    if (carry.kind === "order") {
+      body.innerHTML = `
+        <p class="inspect-eyebrow">손님 프롬프트</p>
+        <h2>주문서 확인</h2>
+        <blockquote class="inspect-prompt">“${escapeHtml(carry.prompt)}”</blockquote>
+        <p class="inspect-hint">이 조건에 맞춰 모듈 칩을 꽂아 이미지를 만드세요.</p>`;
+      return;
+    }
+    if (carry.kind === "product") {
+      const passed = carry.evaluation.passed;
+      body.innerHTML = `
+        <p class="inspect-eyebrow">들고 있는 이미지</p>
+        <h2>결과 확인</h2>
+        <blockquote class="inspect-prompt">요청: “${escapeHtml(carry.prompt)}”</blockquote>
+        ${preview(carry.result)}
+        <div class="result-summary ${passed ? "success" : "failure"}">
+          <b>${passed ? "조건 충족" : "조건 미달"}</b>
+          <span>${escapeHtml(carry.evaluation.summary)}</span>
+        </div>
+        ${scoreGrid(carry.result)}
+        <p class="inspect-hint">맞는 손님에게 전달하세요. Tab으로 닫습니다.</p>`;
+      return;
+    }
+    this.closeInspect();
   }
 
   private onDelivered(payload: { reward: number; passed: boolean; evaluation: { summary: string }; result: GenerationResult }): void {
-    this.priorResult = this.currentResult;
-    this.currentResult = payload.result;
+    this.closeInspect();
     if (payload.passed) {
       this.progression.completeActiveOrder(payload.reward);
       this.session?.setUnlockedModules(this.progression.unlockedModuleIds);
@@ -110,40 +165,11 @@ export class UIController {
       this.progression.addCredits(payload.reward);
     }
     this.saveService.save(this.progression);
-    this.renderResult(payload.evaluation.summary, payload.passed);
     this.renderHud();
     this.renderMenu();
     const next = this.progression.nextOrderId();
     this.byId<HTMLButtonElement>("next-order").hidden = !(payload.passed && this.progression.isComplete(this.order.id) && next);
     this.showNotice(payload.passed ? `납품 성공! +${payload.reward} C` : `조건 미달… +${payload.reward} C`, payload.passed ? "success" : "error");
-  }
-
-  private renderResult(summary: string, passed: boolean): void {
-    if (!this.currentResult) return;
-    const result = this.currentResult;
-    const scoreMarkup = this.order.id === "o01"
-      ? `<p class="simple-score">주문과 맞음: <b>${passed ? "좋음" : "확인 필요"}</b></p>`
-      : scoreGrid(result);
-    const issues = result.issues.length
-      ? result.issues.map((issue) => `<li><b>${issue.message}</b><span>${issue.detail}</span>${issue.recommendationModuleId ? `<em>추천: ${modulesById.get(issue.recommendationModuleId)?.displayName ?? issue.recommendationModuleId}</em>` : ""}</li>`).join("")
-      : `<li><b>문제가 없습니다.</b><span>손님 조건을 만족했습니다.</span></li>`;
-    this.byId("result-content").innerHTML = `
-      <div class="result-comparison">
-        <section><h3>주문서</h3><div class="prompt-card"><b>${this.order.title}</b><p>${this.order.request}</p></div></section>
-        <section><h3>결과</h3>${preview(result)}</section>
-      </div>
-      ${this.priorResult ? `<div class="result-comparison"><section><h3>이전 결과</h3>${preview(this.priorResult)}</section><section><h3>현재 결과</h3>${preview(result)}</section></div>` : ""}
-      <div class="result-summary ${passed ? "success" : "failure"}"><b>${passed ? "납품 성공" : "조건 미달"}</b><span>${summary}</span></div>
-      ${scoreMarkup}
-      <h3 class="issue-heading">문제 분석</h3>
-      <ul class="issues">${issues}</ul>`;
-  }
-
-  private clearResult(): void {
-    this.currentResult = undefined;
-    this.priorResult = undefined;
-    this.byId("result-content").innerHTML = `<div class="result-message info">손님 → 입력기 → 모듈 칩 → 생산 → 출구 → 손님 순서로 응대하세요.</div>`;
-    this.byId<HTMLButtonElement>("next-order").hidden = true;
   }
 
   private advance(): void {
@@ -158,11 +184,13 @@ export class UIController {
     this.saveService.clear();
     this.progression = ProgressionService.createDefault();
     this.session = undefined;
+    this.closeInspect();
     this.showMenu();
     this.renderMenu();
   }
 
   private showMenu(): void {
+    this.closeInspect();
     this.byId("game-screen").classList.add("is-hidden");
     this.byId("menu-screen").classList.remove("is-hidden");
   }
@@ -181,6 +209,17 @@ export class UIController {
   private byId<T extends HTMLElement = HTMLElement>(id: string): T {
     return this.root.querySelector<T>(`#${id}`)!;
   }
+}
+
+function carryLabel(carry: CarryItem): string {
+  if (carry.kind === "none") return "손: 비움";
+  if (carry.kind === "order") return "손: 주문서 📜 (Tab 확인)";
+  if (carry.kind === "moduleChip") return `손: ${modulesById.get(carry.moduleId)?.displayName ?? "칩"} ${modulesById.get(carry.moduleId)?.iconKey ?? ""}`;
+  return "손: 이미지 🖼️ (Tab 확인)";
+}
+
+function escapeHtml(value: string): string {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 }
 
 function scoreGrid(result: GenerationResult): string {
@@ -212,7 +251,7 @@ function shell(): string {
       <button id="start-game" class="primary">새 게임 시작</button>
       <button id="continue-game" class="secondary">이어서 하기</button>
     </div>
-    <p class="menu-note">WASD 이동 · E 상호작용 · 모듈 칩을 슬롯에 꽂아 생산합니다.</p>
+    <p class="menu-note">WASD 이동 · E 상호작용 · Tab으로 프롬프트/이미지 확인</p>
   </section>
   <section id="game-screen" class="game-screen is-hidden">
     <header class="topbar">
@@ -224,12 +263,13 @@ function shell(): string {
         <span id="credits" class="credits">0 C</span>
         <span id="waiting-count" class="factory-status">대기 0명</span>
         <span id="carry-status" class="factory-status">손: 비움</span>
+        <button id="next-order" class="secondary" hidden>다음 의뢰 →</button>
         <button id="reset-line" class="ghost">라인 비우기</button>
         <button id="clear-save" class="ghost danger">저장 초기화</button>
         <button id="back-to-menu" class="ghost">메뉴</button>
       </div>
     </header>
-    <div class="game-layout kitchen-layout">
+    <div class="game-layout kitchen-layout kitchen-layout--wide">
       <aside class="left-panel panel">
         <div class="panel-heading"><span>현재 의뢰</span><small>해금 모듈 칩</small></div>
         <h2 id="order-title" class="side-title"></h2>
@@ -244,18 +284,19 @@ function shell(): string {
             <h2>오버쿡드 공장</h2>
             <p>손님 주문서 → 입력기 → 칩 슬롯 → 생산 → 출구 → 손님</p>
           </div>
-          <div class="controls-chip">WASD 이동 · E / Space 상호작용</div>
+          <div class="controls-chip">WASD 이동 · E 상호작용 · Tab 들여다보기</div>
         </div>
         <div id="game-canvas" class="game-canvas" aria-label="주방 공장 공간"></div>
-        <p class="canvas-help">손님에게서 📜를 집어 입력기에 넣고, 아래 선반 칩을 슬롯에 꽂은 뒤 생산 버튼을 누르세요.</p>
+        <p class="canvas-help">주문서나 이미지를 든 채 Tab을 누르면 프롬프트/결과를 확인할 수 있습니다.</p>
       </section>
-      <aside class="right-panel panel">
-        <div class="panel-heading"><span>최근 납품</span><small>주문서 ↔ 결과</small></div>
-        <div id="result-content"></div>
-        <button id="next-order" class="secondary next-order-btn" hidden>다음 의뢰 →</button>
-      </aside>
     </div>
   </section>
+  <div id="inspect-modal" class="inspect-modal is-hidden" role="dialog" aria-modal="true" aria-label="들여다보기">
+    <div class="inspect-card">
+      <button id="inspect-close" class="ghost inspect-close" type="button">닫기 (Tab)</button>
+      <div id="inspect-body"></div>
+    </div>
+  </div>
   <div id="toast" class="toast" role="status"></div>
 </main>`;
 }

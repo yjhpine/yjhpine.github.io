@@ -1,0 +1,19 @@
+제목: 7월31일 Tab 프롬프트·이미지 확인 및 우측 패널 제거
+
+작업 일시: 2026-07-31
+
+변경 요약
+- 손님마다 개별 프롬프트 문구 부여 (예: "고양이 뽑아줘", "애니메풍 고양이 뽑아줘")
+- 주문서 또는 완성 이미지를 든 상태에서 Tab으로 들여다보기
+- 오른쪽 최근 납품 패널 제거, 다음 의뢰 버튼을 상단바로 이동
+- 확인 UI는 중앙 모달로 표시
+
+주요 파일
+- src/data/prompts.ts (신규)
+- src/core/kitchen/types.ts, KitchenSession.ts
+- src/game/KitchenScene.ts
+- src/ui/UIController.ts, src/style.css
+- README.md, 테스트
+
+검증
+- npm run typecheck / test / build

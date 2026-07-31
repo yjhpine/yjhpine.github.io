@@ -43,6 +43,7 @@ h1 { font-size: clamp(3rem, 9vw, 6rem); margin: 20px 0 10px; letter-spacing: -.0
 .order-step, .factory-status { color: #92b9cd; font-size: .85rem; }
 .credits { color: #f7d047; font-weight: 800; white-space: nowrap; }
 .game-layout { display: grid; grid-template-columns: minmax(190px, 250px) minmax(480px, 1fr) minmax(210px, 270px); min-height: 610px; border: 1px solid #315d78; border-top: 0; background: #0d2439; }
+.game-layout.kitchen-layout--wide { grid-template-columns: minmax(210px, 280px) minmax(560px, 1fr); }
 .panel { background: rgba(15, 45, 67, .94); border: 1px solid #315d78; }
 .left-panel, .right-panel { border: 0; padding: 12px; }
 .left-panel { border-right: 1px solid #315d78; }
@@ -97,6 +98,16 @@ dt { color: #7fb9d3; font-size: .68rem; font-weight: 800; } dd { margin: 4px 0 0
 .toast { position: fixed; left: 50%; bottom: 22px; z-index: 10; padding: 11px 16px; border-radius: 9px; background: #d8f4f7; color: #164b5b; box-shadow: 0 8px 24px rgba(0,0,0,.3); opacity: 0; transform: translate(-50%, 15px); pointer-events: none; transition: .2s ease; }.toast.error { color: #842e27; background: #ffe1de; }.toast.success { color: #134c30; background: #d9f7e7; }.toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
 
 .kitchen-layout { min-height: 640px; }
+.inspect-modal { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 24px; background: rgba(4, 16, 28, .72); backdrop-filter: blur(3px); }
+.inspect-modal.is-hidden { display: none !important; }
+.inspect-card { width: min(520px, 100%); max-height: min(86vh, 720px); overflow: auto; padding: 22px; border-radius: 18px; border: 1px solid #4d7994; background: linear-gradient(160deg, #173a58, #0d2740); box-shadow: 0 24px 60px rgba(0,0,0,.45); position: relative; }
+.inspect-close { position: absolute; top: 12px; right: 12px; }
+.inspect-eyebrow { margin: 0 0 6px; color: #22d3ee; font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.inspect-card h2 { margin: 0 0 14px; font-size: 1.35rem; }
+.inspect-prompt { margin: 0 0 16px; padding: 16px 18px; border-left: 4px solid #f7d047; border-radius: 0 12px 12px 0; background: #143550; color: #eaf8ff; font-size: 1.25rem; font-weight: 700; line-height: 1.45; }
+.inspect-hint { margin: 14px 0 0; color: #8eb5c8; font-size: .82rem; }
+.inspect-card .preview { margin-bottom: 12px; min-height: 180px; }
+.inspect-card .score-grid { margin-top: 10px; }
 .side-title { margin: 0 0 6px; font-size: 1.05rem; }
 .side-copy { margin: 0 0 10px; color: #b8d8e8; font-size: .88rem; line-height: 1.45; }
 .side-tutorial { margin: 0 0 14px !important; border-radius: 10px; }
@@ -113,5 +124,5 @@ dt { color: #7fb9d3; font-size: .68rem; font-weight: 800; } dd { margin: 4px 0 0
 .next-order-btn { width: 100%; margin-top: 12px; }
 .issues em { font-style: normal; color: #f7d047; font-size: .72rem; }
 
-@media (max-width: 1050px) { .game-layout { grid-template-columns: 210px minmax(480px, 1fr); }.right-panel { grid-column: 1 / -1; border-left: 0; border-top: 1px solid #315d78; } }
-@media (max-width: 760px) { .app-shell { padding: 8px; }.topbar, .topbar > div, .order-card, .result-header { align-items: stretch; flex-direction: column; }.top-actions { align-items: center; }.game-layout { grid-template-columns: 1fr; }.left-panel { border-right: 0; border-bottom: 1px solid #315d78; }.game-canvas { min-height: 360px; }.result-comparison { grid-template-columns: 1fr; }.score-grid { grid-template-columns: repeat(3, 1fr); }.controls-chip { white-space: normal; }.factory-status { display: none; } }
+@media (max-width: 1050px) { .game-layout, .game-layout.kitchen-layout--wide { grid-template-columns: 210px minmax(480px, 1fr); } }
+@media (max-width: 760px) { .app-shell { padding: 8px; }.topbar, .topbar > div, .order-card { align-items: stretch; flex-direction: column; }.top-actions { align-items: center; }.game-layout, .game-layout.kitchen-layout--wide { grid-template-columns: 1fr; }.left-panel { border-right: 0; border-bottom: 1px solid #315d78; }.game-canvas { min-height: 360px; }.score-grid { grid-template-columns: repeat(3, 1fr); }.controls-chip { white-space: normal; }.factory-status { display: none; } }

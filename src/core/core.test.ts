@@ -11,7 +11,17 @@ describe("KitchenSession carry rules", () => {
     const session = new KitchenSession("o01", ["image-maker"]);
     expect(session.getCarry().kind).toBe("none");
     expect(session.getWaitingCustomers()).toHaveLength(1);
+    expect(session.getWaitingCustomers()[0].prompt.length).toBeGreaterThan(0);
     expect(session.getSlots()).toEqual([null, null, null]);
+  });
+
+  it("carries the customer prompt on the order slip", () => {
+    const session = new KitchenSession("o01", ["image-maker"]);
+    const customer = session.getWaitingCustomers()[0];
+    session.pickUpFromCustomer(customer.id);
+    const carry = session.getCarry();
+    expect(carry.kind).toBe("order");
+    if (carry.kind === "order") expect(carry.prompt).toBe(customer.prompt);
   });
 
   it("picks up an order only with empty hands", () => {

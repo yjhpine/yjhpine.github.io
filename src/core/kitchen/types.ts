@@ -10,6 +10,8 @@ export interface CarryOrder {
   kind: "order";
   orderId: string;
   customerId: string;
+  /** Customer-written prompt text shown when inspecting with Tab. */
+  prompt: string;
 }
 
 export interface CarryModuleChip {
@@ -21,6 +23,7 @@ export interface CarryProduct {
   kind: "product";
   orderId: string;
   customerId: string;
+  prompt: string;
   result: GenerationResult;
   evaluation: OrderEvaluation;
 }
@@ -32,6 +35,8 @@ export type CustomerState = "waiting" | "served" | "left";
 export interface Customer {
   id: string;
   orderId: string;
+  /** Unique prompt slip for this customer. */
+  prompt: string;
   patience: number;
   maxPatience: number;
   state: CustomerState;
