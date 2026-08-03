@@ -19,7 +19,8 @@ type InteractTarget =
   | { kind: "produce" }
   | { kind: "output" }
   | { kind: "slot"; index: number }
-  | { kind: "shelf"; moduleId: string };
+  | { kind: "shelf"; moduleId: string }
+  | { kind: "floor"; id: string };
 
 interface StationZone {
   target: InteractTarget;
@@ -52,6 +53,7 @@ export class KitchenScene extends Phaser.Scene {
   private zones: StationZone[] = [];
   private zoneViews = new Map<string, Phaser.GameObjects.Container>();
   private customerViews = new Map<string, Phaser.GameObjects.Container>();
+  private floorViews = new Map<string, Phaser.GameObjects.Container>();
   private highlight?: Phaser.GameObjects.Rectangle;
   private floor!: Phaser.GameObjects.Graphics;
   private interactReady = true;
@@ -94,6 +96,7 @@ export class KitchenScene extends Phaser.Scene {
     this.player.setPosition(MAP_W / 2, MAP_H * 0.62);
     this.refreshStationLabels();
     this.syncCustomers();
+    this.syncFloorItems();
     this.syncCarryVisual();
     this.eventBus.emit("sessionChanged", undefined);
   }
@@ -107,6 +110,7 @@ export class KitchenScene extends Phaser.Scene {
     this.movePlayer(dt);
     for (const event of this.session.tick(dt)) this.handleSessionEvent(event);
     this.syncCustomers();
+    this.syncFloorItems();
     this.refreshStationLabels();
     this.syncCarryVisual();
     this.updateHighlight();
@@ -183,13 +187,21 @@ export class KitchenScene extends Phaser.Scene {
     if (!this.session || !this.interactReady) return;
     this.interactReady = false;
     this.time.delayedCall(120, () => { this.interactReady = true; });
-    const target = this.nearestTarget();
-    if (!target) {
+    const carry = this.session.getCarry();
+    const target = this.nearestTarget({ includeFloor: carry.kind === "none" });
+    let result: KitchenActionResult;
+    if (target) {
+      result = this.applyInteraction(target);
+    } else if (carry.kind !== "none") {
+      const dropX = Phaser.Math.Clamp(this.player.x + this.facingX * 28, 40, MAP_W - 40);
+      const dropY = Phaser.Math.Clamp(this.player.y + this.facingY * 28, 100, MAP_H - 40);
+      result = this.session.dropToFloor(dropX, dropY);
+    } else {
       this.eventBus.emit("notice", { message: "근처에 상호작용할 대상이 없습니다.", tone: "info" });
       return;
     }
-    const result = this.applyInteraction(target);
     this.handleSessionEvent(result);
+    this.syncFloorItems();
     this.eventBus.emit("sessionChanged", undefined);
   }
 
@@ -206,6 +218,7 @@ export class KitchenScene extends Phaser.Scene {
       case "output": return session.interactOutput();
       case "slot": return session.interactSlot(target.index);
       case "shelf": return session.pickUpFromShelf(target.moduleId);
+      case "floor": return session.pickUpFromFloor(target.id);
     }
   }
 
@@ -216,7 +229,8 @@ export class KitchenScene extends Phaser.Scene {
     if (event.roundFinished) this.eventBus.emit("roundFinished", event.roundFinished);
   }
 
-  private nearestTarget(): InteractTarget | undefined {
+  private nearestTarget(options: { includeFloor?: boolean } = {}): InteractTarget | undefined {
+    const includeFloor = options.includeFloor ?? true;
     let best: { target: InteractTarget; dist: number } | undefined;
     for (const zone of this.zones) {
       if (zone.target.kind === "shelf" && this.session && !this.session.getShelfModuleIds().includes(zone.target.moduleId)) continue;
@@ -231,17 +245,29 @@ export class KitchenScene extends Phaser.Scene {
       if (dist > INTERACT_RANGE) continue;
       if (!best || dist < best.dist) best = { target: { kind: "customer", id }, dist };
     }
+    if (includeFloor && this.session) {
+      for (const item of this.session.getFloorItems()) {
+        const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, item.x, item.y);
+        if (dist > INTERACT_RANGE) continue;
+        if (!best || dist < best.dist) best = { target: { kind: "floor", id: item.id }, dist };
+      }
+    }
     return best?.target;
   }
 
   private updateHighlight(): void {
-    const target = this.nearestTarget();
+    const carry = this.session?.getCarry();
+    const target = this.nearestTarget({ includeFloor: !carry || carry.kind === "none" });
     if (!target || !this.highlight) { this.highlight?.setVisible(false); return; }
     let x = 0; let y = 0; let w = 40; let h = 40;
     if (target.kind === "customer") {
       const view = this.customerViews.get(target.id);
       if (!view) { this.highlight.setVisible(false); return; }
       x = view.x; y = view.y; w = 54; h = 70;
+    } else if (target.kind === "floor") {
+      const item = this.session?.getFloorItems().find((entry) => entry.id === target.id);
+      if (!item) { this.highlight.setVisible(false); return; }
+      x = item.x; y = item.y; w = 36; h = 36;
     } else {
       const zone = this.zones.find((item) => JSON.stringify(item.target) === JSON.stringify(target));
       if (!zone) { this.highlight.setVisible(false); return; }
@@ -339,6 +365,38 @@ export class KitchenScene extends Phaser.Scene {
       bar.setSize(Math.max(2, 50 * ratio), 6);
       bar.setFillStyle(ratio < 0.3 ? 0xff6b6b : 0xf7d047);
     });
+  }
+
+  private syncFloorItems(): void {
+    if (!this.session) return;
+    const items = this.session.getFloorItems();
+    const live = new Set(items.map((item) => item.id));
+    for (const [id, view] of this.floorViews) {
+      if (!live.has(id)) { view.destroy(true); this.floorViews.delete(id); }
+    }
+    for (const item of items) {
+      let view = this.floorViews.get(item.id);
+      const glyph = carryGlyph(item.item);
+      if (!view) {
+        const shadow = this.add.ellipse(0, 10, 28, 12, 0x061525, 0.45);
+        const icon = this.add.text(0, 0, glyph, { fontSize: "18px" }).setOrigin(0.5);
+        view = this.add.container(item.x, item.y, [shadow, icon]);
+        view.setDepth(1);
+        this.floorViews.set(item.id, view);
+        this.tweens.add({
+          targets: icon,
+          y: -3,
+          duration: 700,
+          yoyo: true,
+          repeat: -1,
+          ease: "Sine.easeInOut",
+        });
+      } else {
+        view.setPosition(item.x, item.y);
+        const icon = view.list[1] as Phaser.GameObjects.Text;
+        icon.setText(glyph);
+      }
+    }
   }
 
   private syncCarryVisual(): void {

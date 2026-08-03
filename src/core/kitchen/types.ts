@@ -30,6 +30,15 @@ export interface CarryProduct {
 
 export type CarryItem = CarryNone | CarryOrder | CarryModuleChip | CarryProduct;
 
+export type FloorCarryItem = Exclude<CarryItem, CarryNone>;
+
+export interface FloorItem {
+  id: string;
+  x: number;
+  y: number;
+  item: FloorCarryItem;
+}
+
 export type CustomerState = "waiting" | "served" | "left";
 
 export interface Customer {

@@ -287,7 +287,7 @@ function shell(): string {
       <button id="start-game" class="primary">새 게임 시작</button>
       <button id="continue-game" class="secondary">이어서 하기</button>
     </div>
-    <p class="menu-note">WASD 이동 · Z 상호작용 · C 대시 · X 확인 · 생산마다 VRAM 소모</p>
+    <p class="menu-note">WASD 이동 · Z 상호작용(빈 곳이면 내려놓기) · C 대시 · X 확인 · 생산마다 VRAM 소모</p>
   </section>
   <section id="game-screen" class="game-screen is-hidden">
     <header class="topbar">
@@ -316,7 +316,7 @@ function shell(): string {
       </aside>
       <section class="factory-column">
         <div id="game-canvas" class="game-canvas" aria-label="주방 공장 공간"></div>
-        <p class="canvas-help">WASD 이동 · Z 상호작용 · C 대시 · X 들여다보기 · 생산 시 VRAM 소모</p>
+        <p class="canvas-help">WASD 이동 · Z 상호작용(빈 곳이면 내려놓기) · C 대시 · X 들여다보기 · 생산 시 VRAM 소모</p>
       </section>
     </div>
   </section>
