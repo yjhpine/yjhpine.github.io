@@ -226,6 +226,22 @@ class MemoryStorage implements StorageAdapter {
   removeItem(key: string): void { this.values.delete(key); }
 }
 
+describe("Module unlock tutorials", () => {
+  it("queues image-maker on a fresh save", () => {
+    const progression = ProgressionService.createDefault();
+    expect(progression.pendingModuleTutorials("r01")).toEqual(["image-maker"]);
+  });
+
+  it("marks introduced modules so the tutorial does not repeat", () => {
+    const progression = ProgressionService.createDefault();
+    progression.markModulesIntroduced(["image-maker"]);
+    expect(progression.pendingModuleTutorials("r01")).toEqual([]);
+    progression.completeActiveRound(90, 100);
+    progression.activateRound("r02");
+    expect(progression.pendingModuleTutorials("r02")).toEqual(["style-processor"]);
+  });
+});
+
 describe("SaveService v2", () => {
   it("restores defaults for a missing save", () => {
     expect(new SaveService(new MemoryStorage()).load().currentRoundId).toBe("r01");
@@ -241,5 +257,14 @@ describe("SaveService v2", () => {
     expect(loaded.credits).toBe(180);
     expect(loaded.bestRoundScores.r01).toBe(92);
     expect(loaded.unlockedModuleIds).toContain("style-processor");
+  });
+
+  it("persists introduced module tutorials", () => {
+    const storage = new MemoryStorage();
+    const service = new SaveService(storage);
+    const progression = ProgressionService.createDefault();
+    progression.markModulesIntroduced(["image-maker"]);
+    service.save(progression);
+    expect(service.load().pendingModuleTutorials("r01")).toEqual([]);
   });
 });

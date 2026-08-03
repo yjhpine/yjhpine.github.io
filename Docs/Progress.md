@@ -2,6 +2,7 @@
 
 ## 2026-08-03
 
+- 모듈 해금 시 우측 하단 튜토리얼 위젯(“이건 ~~한 모듈입니다”)을 추가했다. `introducedModuleIds`로 반복 표시를 막는다.
 - 실모델 연동 대신 절차적 CSS 프리뷰를 강화했다.
 - `previewModel` + `renderPreview`: 태그/품질 밴드 반영, 효과 목록·점수 표시, 씬 모션 추가.
 - typecheck / test(16) / build 통과.

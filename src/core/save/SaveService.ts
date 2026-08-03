@@ -27,6 +27,7 @@ export class SaveService {
           credits: parsed.credits,
           completedRoundIds: parsed.completedRoundIds,
           unlockedModuleIds: parsed.unlockedModuleIds,
+          introducedModuleIds: Array.isArray(parsed.introducedModuleIds) ? parsed.introducedModuleIds : [],
           tutorialStage: typeof parsed.tutorialStage === "number" ? parsed.tutorialStage : 1,
           activeRoundId: parsed.activeRoundId,
           bestRoundScores: parsed.bestRoundScores ?? {},

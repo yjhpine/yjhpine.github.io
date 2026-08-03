@@ -1,0 +1,15 @@
+제목: 8월3일 모듈 해금 튜토리얼 위젯
+
+변경 요약
+- 새 모듈이 해금된 라운드 시작 시 우측 하단 튜토리얼 위젯 표시
+- 문구: "이건 ~~한 모듈입니다." + VRAM/사용 안내
+- introducedModuleIds로 한 번 본 모듈은 다시 안 띄움 (기존 세이브 호환)
+
+주요 파일
+- src/data/modules.ts (unlockTutorial)
+- src/core/progression/ProgressionService.ts
+- src/core/save/SaveService.ts
+- src/core/types.ts
+- src/ui/UIController.ts
+- src/style.css
+- src/core/core.test.ts
