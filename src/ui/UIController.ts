@@ -182,7 +182,7 @@ export class UIController {
         <p class="inspect-eyebrow">손님 프롬프트</p>
         <h2>주문서 확인</h2>
         <blockquote class="inspect-prompt">“${escapeHtml(carry.prompt)}”</blockquote>
-        <p class="inspect-hint">손님 머리 위에도 같은 요청이 보입니다. 필요한 칩만 꽂아 VRAM을 아끼세요.</p>`;
+        <p class="inspect-hint">필요한 칩만 꽂아 VRAM을 아끼세요.</p>`;
       return;
     }
     if (carry.kind === "product") {

@@ -1,0 +1,8 @@
+제목: 8월3일 주문서집으면 머리위프롬프트숨김
+
+변경 요약
+- 손님 주문서를 집으면(orderTaken) 머리 위 한 줄 프롬프트 말풍선을 숨김
+
+주요 파일
+- src/game/KitchenScene.ts
+- Docs/Decisions.md
