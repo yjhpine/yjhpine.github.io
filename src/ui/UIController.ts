@@ -2,12 +2,12 @@ import Phaser from "phaser";
 import { KitchenSession } from "../core/kitchen/KitchenSession";
 import { RoundScoreService, type RoundScoreBreakdown } from "../core/kitchen/RoundScoreService";
 import type { CarryItem, RoundStats } from "../core/kitchen/types";
-import type { GenerationResult } from "../core/types";
 import { SaveService } from "../core/save/SaveService";
 import { ProgressionService } from "../core/progression/ProgressionService";
 import { modulesById } from "../data/modules";
 import { rounds, roundsById } from "../data/rounds";
 import { KitchenScene } from "../game/KitchenScene";
+import { renderPreview } from "./renderPreview";
 
 export class UIController {
   private readonly saveService = new SaveService();
@@ -155,7 +155,7 @@ export class UIController {
         <p class="inspect-eyebrow">들고 있는 이미지</p>
         <h2>결과 확인</h2>
         <blockquote class="inspect-prompt">요청: “${escapeHtml(carry.prompt)}”</blockquote>
-        ${preview(carry.result)}
+        ${renderPreview(carry.result)}
         <div class="result-summary ${passed ? "success" : "failure"}">
           <b>${passed ? "조건 충족" : "조건 미달"}</b>
           <span>${escapeHtml(carry.evaluation.summary)}</span>
@@ -261,19 +261,6 @@ function carryLabel(carry: CarryItem): string {
 
 function escapeHtml(value: string): string {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
-}
-
-function preview(result: GenerationResult): string {
-  const tags = new Set(result.appliedTags);
-  const classes = [
-    "preview",
-    tags.has("style-fairytale") ? "preview--fairytale" : "preview--plain",
-    tags.has("no-hat") ? "preview--no-hat" : "preview--hat",
-    tags.has("centered-composition") ? "preview--center" : "preview--offset",
-    tags.has("sharpness") ? "preview--sharp" : "preview--soft",
-    tags.has("quality-inspection") ? "preview--checked" : "preview--unchecked",
-  ].join(" ");
-  return `<div class="${classes}" aria-label="${result.previewKey}"><span class="moon"></span><span class="cloud cloud-a"></span><span class="cloud cloud-b"></span><span class="cat"><i class="ear left"></i><i class="ear right"></i><i class="face"></i><i class="hat"></i></span><span class="result-label">${result.appliedTags.includes("quality-inspection") ? "검사 완료" : "제작 완료"}</span></div>`;
 }
 
 function shell(): string {
