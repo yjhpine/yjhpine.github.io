@@ -152,6 +152,38 @@ describe("KitchenSession rounds and VRAM", () => {
     }
     expect(session.getVramUsed()).toBeGreaterThan(session.getVramBudget());
   });
+
+  it("drops carried items to the floor and picks them back up", () => {
+    const session = new KitchenSession("r01");
+    session.tick(0.1);
+    const customer = session.getWaitingCustomers()[0]!;
+    expect(session.pickUpFromCustomer(customer.id).ok).toBe(true);
+    expect(session.dropToFloor(400, 300).ok).toBe(true);
+    expect(session.getCarry().kind).toBe("none");
+    expect(session.getFloorItems()).toHaveLength(1);
+    const floorId = session.getFloorItems()[0]!.id;
+    expect(session.pickUpFromFloor(floorId).ok).toBe(true);
+    expect(session.getCarry().kind).toBe("order");
+    expect(session.getFloorItems()).toHaveLength(0);
+    expect(session.interactInput().ok).toBe(true);
+
+    expect(session.pickUpFromShelf("image-maker").ok).toBe(true);
+    expect(session.dropToFloor(420, 320).ok).toBe(true);
+    expect(session.getFloorItems()[0]!.item).toMatchObject({ kind: "moduleChip", moduleId: "image-maker" });
+  });
+
+  it("clears floor orders when the customer leaves", () => {
+    const session = new KitchenSession("r01");
+    session.tick(0.1);
+    const customer = session.getWaitingCustomers()[0]!;
+    session.pickUpFromCustomer(customer.id);
+    session.dropToFloor(300, 280);
+    expect(session.getFloorItems()).toHaveLength(1);
+    for (const event of session.tick(50)) {
+      if (event.leftCustomerId) break;
+    }
+    expect(session.getFloorItems()).toHaveLength(0);
+  });
 });
 
 class MemoryStorage implements StorageAdapter {

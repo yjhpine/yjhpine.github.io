@@ -15,6 +15,7 @@ import {
   type CarryItem,
   type CarryProduct,
   type Customer,
+  type FloorItem,
   type InputStation,
   type KitchenActionResult,
   type OutputStation,
@@ -25,8 +26,10 @@ export class KitchenSession {
   private readonly simulator = new GenerationSimulator();
   private readonly evaluator = new OrderEvaluator();
   private customerSequence = 0;
+  private floorSequence = 0;
   private carry: CarryItem = emptyCarry();
   private readonly customers: Customer[] = [];
+  private readonly floorItems: FloorItem[] = [];
   private readonly input: InputStation = { order: null };
   private readonly slots: Array<string | null>;
   private readonly output: OutputStation = { product: null };
@@ -64,6 +67,9 @@ export class KitchenSession {
   }
 
   getCarry(): CarryItem { return this.carry; }
+  getFloorItems(): FloorItem[] {
+    return this.floorItems.map((item) => ({ ...item, item: { ...item.item } as FloorItem["item"] }));
+  }
   getCustomers(): Customer[] { return this.customers.map((customer) => ({ ...customer })); }
   getWaitingCustomers(): Customer[] { return this.getCustomers().filter((customer) => customer.state === "waiting"); }
   getInput(): InputStation { return { order: this.input.order ? { ...this.input.order } : null }; }
@@ -177,6 +183,27 @@ export class KitchenSession {
     this.carry = { kind: "moduleChip", moduleId };
     const cost = modulesById.get(moduleId)?.vramCost ?? 0;
     return ok(`모듈 칩을 집었습니다. (VRAM ${cost}) 빈 슬롯에 꽂으세요.`, "info");
+  }
+
+  dropToFloor(x: number, y: number): KitchenActionResult {
+    if (this.roundFinished) return fail("라운드가 종료되었습니다.");
+    if (this.carry.kind === "none") return fail("내려놓을 것이 없습니다.");
+    this.floorSequence += 1;
+    const item = this.carry;
+    this.carry = emptyCarry();
+    this.floorItems.push({ id: `floor-${this.floorSequence}`, x, y, item });
+    return ok(`${carryObjectLabel(item.kind)} 바닥에 내려놓았습니다.`, "info");
+  }
+
+  pickUpFromFloor(floorItemId: string): KitchenActionResult {
+    if (this.roundFinished) return fail("라운드가 종료되었습니다.");
+    if (this.carry.kind !== "none") return fail("이미 무언가를 들고 있습니다.");
+    const index = this.floorItems.findIndex((item) => item.id === floorItemId);
+    if (index < 0) return fail("바닥에 집힐 물건이 없습니다.");
+    const [floorItem] = this.floorItems.splice(index, 1);
+    if (!floorItem) return fail("바닥에 집힐 물건이 없습니다.");
+    this.carry = floorItem.item;
+    return ok(`바닥에서 ${carryObjectLabel(floorItem.item.kind)} 집었습니다.`, "info");
   }
 
   interactSlot(index: number): KitchenActionResult {
@@ -346,6 +373,12 @@ export class KitchenSession {
     if (this.carry.kind === "product" && this.carry.customerId === customerId) this.carry = emptyCarry();
     if (this.input.order?.customerId === customerId) this.input.order = null;
     if (this.output.product?.customerId === customerId) this.output.product = null;
+    for (let i = this.floorItems.length - 1; i >= 0; i -= 1) {
+      const item = this.floorItems[i]!.item;
+      if ((item.kind === "order" || item.kind === "product") && item.customerId === customerId) {
+        this.floorItems.splice(i, 1);
+      }
+    }
   }
 }
 
@@ -362,6 +395,12 @@ function buildOrderQueue(round: RoundDefinition): string[] {
     queue[queue.length - 1] = mid;
   }
   return queue;
+}
+
+function carryObjectLabel(kind: "order" | "moduleChip" | "product"): string {
+  if (kind === "order") return "주문서를";
+  if (kind === "moduleChip") return "모듈 칩을";
+  return "이미지를";
 }
 
 function ok(message: string, tone: "info" | "success" | "error" = "info"): KitchenActionResult {
