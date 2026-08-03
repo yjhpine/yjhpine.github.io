@@ -359,7 +359,7 @@ export class KitchenScene extends Phaser.Scene {
         view.setPosition(x, y);
       }
       const promptBubble = view.list[2] as Phaser.GameObjects.Container;
-      this.updatePromptBubble(promptBubble, customer.prompt);
+      this.updatePromptBubble(promptBubble, customer.prompt, !customer.orderTaken);
       const bar = view.list[4] as Phaser.GameObjects.Rectangle;
       const ratio = customer.patience / customer.maxPatience;
       bar.setSize(Math.max(2, 50 * ratio), 6);
@@ -375,16 +375,17 @@ export class KitchenScene extends Phaser.Scene {
       color: "#eaf8ff",
     }).setOrigin(0.5);
     const bubble = this.add.container(0, -36, [bg, text]);
-    this.updatePromptBubble(bubble, prompt);
+    this.updatePromptBubble(bubble, prompt, true);
     return bubble;
   }
 
-  private updatePromptBubble(bubble: Phaser.GameObjects.Container, prompt: string): void {
+  private updatePromptBubble(bubble: Phaser.GameObjects.Container, prompt: string, visible: boolean): void {
     const bg = bubble.list[0] as Phaser.GameObjects.Rectangle;
     const text = bubble.list[1] as Phaser.GameObjects.Text;
     text.setText(shortPrompt(prompt));
     const width = Phaser.Math.Clamp(text.width + 14, 72, 168);
     bg.setSize(width, 18);
+    bubble.setVisible(visible);
   }
 
   private syncFloorItems(): void {
