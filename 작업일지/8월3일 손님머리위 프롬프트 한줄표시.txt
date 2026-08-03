@@ -1,0 +1,12 @@
+제목: 8월3일 손님머리위 프롬프트 한줄표시
+
+변경 요약
+- 손님 머리 위 📜 아이콘 대신 프롬프트를 작은 한 줄 말풍선으로 표시
+- 긴 문장은 말줄임(…) 처리, 대기 중 항상 표시
+- 튜토리얼/집어들기 안내 문구를 머리 위 표시에 맞게 수정
+
+주요 파일
+- src/game/KitchenScene.ts
+- src/core/kitchen/KitchenSession.ts
+- src/data/orders.ts
+- src/ui/UIController.ts

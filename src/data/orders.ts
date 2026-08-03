@@ -6,7 +6,7 @@ export const orders: OrderDefinition[] = [
     id: "o01",
     title: "첫 번째 고양이 그림",
     request: "고양이 그림을 만들어 주세요.",
-    tutorial: "손님 주문서를 집고 X로 프롬프트를 확인하세요. 그림 제작기 칩을 꽂아 생산한 뒤, 이미지도 X로 보고 손님에게 전달하세요.",
+    tutorial: "손님 머리 위 한 줄 요청을 보고 주문서를 집으세요. 그림 제작기 칩을 꽂아 생산한 뒤, 이미지는 X로 확인하고 전달하세요.",
     availableModuleIds: ["image-maker"],
     reward: 100,
     minimumScores: { subjectAccuracy: 60 },

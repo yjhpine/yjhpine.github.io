@@ -158,7 +158,7 @@ export class KitchenSession {
     if (customer.orderTaken) return fail("이미 이 손님의 주문서를 가져갔습니다.");
     customer.orderTaken = true;
     this.carry = { kind: "order", orderId: customer.orderId, customerId: customer.id, prompt: customer.prompt };
-    return ok("주문서를 집어 들었습니다. X로 프롬프트를 확인하세요.", "info");
+    return ok("주문서를 집어 들었습니다. 손님 요청은 머리 위에도 표시됩니다.", "info");
   }
 
   interactInput(): KitchenActionResult {
