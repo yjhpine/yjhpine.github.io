@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { GenerationSimulator } from "./generation/GenerationSimulator";
+import { buildPreviewModel } from "./generation/previewModel";
 import { KitchenSession } from "./kitchen/KitchenSession";
 import { produceSlowdownMultiplier, RoundScoreService } from "./kitchen/RoundScoreService";
 import { ProgressionService } from "./progression/ProgressionService";
 import { SaveService, type StorageAdapter } from "./save/SaveService";
+import { ordersById } from "../data/orders";
+import { renderPreview } from "../ui/renderPreview";
 
 function serveCustomer(session: KitchenSession, chips: string[]): void {
   session.tick(1);
@@ -20,6 +24,35 @@ function serveCustomer(session: KitchenSession, chips: string[]): void {
   expect(session.interactOutput().ok).toBe(true);
   expect(session.deliverToCustomer(customer.id).delivered).toBeTruthy();
 }
+
+describe("Generation preview", () => {
+  const simulator = new GenerationSimulator();
+
+  it("encodes module tags and quality band into previewKey", () => {
+    const plain = simulator.simulate(ordersById.get("o01")!, ["order-input", "image-maker", "delivery-bay"]);
+    expect(plain.previewKey).toContain("plain");
+    expect(plain.previewKey).toContain("hat");
+    expect(plain.previewKey).toMatch(/-(lo|mid|hi)$/);
+
+    const styled = simulator.simulate(ordersById.get("o02")!, ["order-input", "image-maker", "style-processor", "delivery-bay"]);
+    expect(styled.previewKey).toContain("fairytale");
+    expect(styled.appliedTags).toContain("style-fairytale");
+  });
+
+  it("builds preview classes and effect labels for the inspect UI", () => {
+    const result = simulator.simulate(
+      ordersById.get("o03")!,
+      ["order-input", "image-maker", "ban-list", "delivery-bay"],
+    );
+    const model = buildPreviewModel(result);
+    expect(model.classes).toContain("preview--no-hat");
+    expect(model.effects).toContain("모자 제거");
+    const html = renderPreview(result);
+    expect(html).toContain("preview--no-hat");
+    expect(html).toContain("모자 제거");
+    expect(html).toContain("preview-scores");
+  });
+});
 
 describe("RoundScoreService", () => {
   const scorer = new RoundScoreService();

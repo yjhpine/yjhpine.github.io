@@ -1,0 +1,16 @@
+제목: 8월3일 시뮬 프리뷰 강화
+
+변경 요약
+- 실 LLM/이미지 API 대신 칩 태그·품질 점수 기반 절차적 CSS 프리뷰 강화
+- previewKey에 품질 밴드(lo/mid/hi) 추가
+- 들여다보기(X)에 효과 목록·품질 점수·풍부한 씬 연출(구름/별/고양이 디테일) 반영
+- 모션: 구름 이동, 반짝임, 고양이 호흡
+
+주요 파일
+- src/core/generation/previewModel.ts (신규)
+- src/core/generation/GenerationSimulator.ts
+- src/ui/renderPreview.ts (신규)
+- src/ui/UIController.ts
+- src/style.css
+- src/core/core.test.ts
+- Docs/Decisions.md, README.md, 작업일지

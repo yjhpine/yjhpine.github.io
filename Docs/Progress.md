@@ -1,5 +1,11 @@
 # Progress
 
+## 2026-08-03
+
+- 실모델 연동 대신 절차적 CSS 프리뷰를 강화했다.
+- `previewModel` + `renderPreview`: 태그/품질 밴드 반영, 효과 목록·점수 표시, 씬 모션 추가.
+- typecheck / test(16) / build 통과.
+
 ## 2026-07-31
 
 - 라운드·VRAM·효율 점수(1B+2B)를 구현했다.

@@ -1,5 +1,6 @@
 import { modulesById } from "../../data/modules";
 import type { GenerationResult, GenerationTag, ModuleDefinition, OrderDefinition, QualityScores } from "../types";
+import { createPreviewKey, qualityBandFromScores } from "./previewModel";
 
 export class GenerationSimulator {
   simulate(order: OrderDefinition, moduleIds: string[]): GenerationResult {
@@ -13,6 +14,7 @@ export class GenerationSimulator {
       applyDefinition(definition, scores, tags);
     }
     const hasInspection = tags.includes("quality-inspection");
+    const band = qualityBandFromScores(scores);
     return {
       ...scores,
       processingTime,
@@ -20,7 +22,7 @@ export class GenerationSimulator {
       issues: [],
       hasDelivery: moduleIds.includes("delivery-bay"),
       hasInspection,
-      previewKey: createPreviewKey(tags),
+      previewKey: createPreviewKey(tags, band),
     };
   }
 }
@@ -30,8 +32,4 @@ function applyDefinition(definition: ModuleDefinition, scores: QualityScores, ta
     if (effect.tag && !tags.includes(effect.tag)) tags.push(effect.tag);
     if (effect.scores) for (const [key, value] of Object.entries(effect.scores) as [keyof QualityScores, number][]) scores[key] += value;
   }
-}
-
-function createPreviewKey(tags: GenerationTag[]): string {
-  return ["cat", tags.includes("style-fairytale") ? "fairytale" : "plain", tags.includes("no-hat") ? "no-hat" : "hat", tags.includes("centered-composition") ? "center" : "offset", tags.includes("sharpness") ? "sharp" : "soft", tags.includes("quality-inspection") ? "checked" : "unchecked"].join("-");
 }
