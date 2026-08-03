@@ -263,7 +263,7 @@ export class KitchenScene extends Phaser.Scene {
     if (target.kind === "customer") {
       const view = this.customerViews.get(target.id);
       if (!view) { this.highlight.setVisible(false); return; }
-      x = view.x; y = view.y; w = 54; h = 70;
+      x = view.x; y = view.y - 8; w = 64; h = 86;
     } else if (target.kind === "floor") {
       const item = this.session?.getFloorItems().find((entry) => entry.id === target.id);
       if (!item) { this.highlight.setVisible(false); return; }
@@ -346,25 +346,45 @@ export class KitchenScene extends Phaser.Scene {
     waiting.forEach((customer, index) => {
       let view = this.customerViews.get(customer.id);
       const x = 280 + index * 180;
-      const y = 70;
+      const y = 78;
       if (!view) {
         const body = this.add.rectangle(0, 8, 48, 56, 0x34a576).setStrokeStyle(2, 0xffffff, 0.7);
         const face = this.add.text(0, 0, "🧑", { fontSize: "22px" }).setOrigin(0.5);
-        const slip = this.add.text(0, -28, customer.orderTaken ? "" : "📜", { fontSize: "16px" }).setOrigin(0.5);
+        const promptBubble = this.createPromptBubble(customer.prompt);
         const barBg = this.add.rectangle(0, 42, 50, 6, 0x0a1d30);
         const bar = this.add.rectangle(-25, 42, 50, 6, 0xf7d047).setOrigin(0, 0.5);
-        view = this.add.container(x, y, [body, face, slip, barBg, bar]);
+        view = this.add.container(x, y, [body, face, promptBubble, barBg, bar]);
         this.customerViews.set(customer.id, view);
       } else {
         view.setPosition(x, y);
       }
-      const slip = view.list[2] as Phaser.GameObjects.Text;
+      const promptBubble = view.list[2] as Phaser.GameObjects.Container;
+      this.updatePromptBubble(promptBubble, customer.prompt);
       const bar = view.list[4] as Phaser.GameObjects.Rectangle;
-      slip.setText(customer.orderTaken ? "" : "📜");
       const ratio = customer.patience / customer.maxPatience;
       bar.setSize(Math.max(2, 50 * ratio), 6);
       bar.setFillStyle(ratio < 0.3 ? 0xff6b6b : 0xf7d047);
     });
+  }
+
+  private createPromptBubble(prompt: string): Phaser.GameObjects.Container {
+    const bg = this.add.rectangle(0, 0, 120, 18, 0x0d2740, 0.92).setStrokeStyle(1, 0x8ec6df, 0.95);
+    const text = this.add.text(0, 0, "", {
+      fontFamily: "IBM Plex Sans KR, Pretendard, sans-serif",
+      fontSize: "11px",
+      color: "#eaf8ff",
+    }).setOrigin(0.5);
+    const bubble = this.add.container(0, -36, [bg, text]);
+    this.updatePromptBubble(bubble, prompt);
+    return bubble;
+  }
+
+  private updatePromptBubble(bubble: Phaser.GameObjects.Container, prompt: string): void {
+    const bg = bubble.list[0] as Phaser.GameObjects.Rectangle;
+    const text = bubble.list[1] as Phaser.GameObjects.Text;
+    text.setText(shortPrompt(prompt));
+    const width = Phaser.Math.Clamp(text.width + 14, 72, 168);
+    bg.setSize(width, 18);
   }
 
   private syncFloorItems(): void {
@@ -422,4 +442,10 @@ function carryGlyph(carry: CarryItem): string {
   if (carry.kind === "moduleChip") return modulesById.get(carry.moduleId)?.iconKey ?? "⬡";
   if (carry.kind === "product") return "🖼️";
   return "";
+}
+
+function shortPrompt(prompt: string, maxChars = 16): string {
+  const oneLine = prompt.replace(/\s+/g, " ").trim();
+  if (oneLine.length <= maxChars) return oneLine;
+  return `${oneLine.slice(0, Math.max(1, maxChars - 1))}…`;
 }
