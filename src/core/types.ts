@@ -42,6 +42,8 @@ export interface ModuleDefinition {
   id: string;
   displayName: string;
   description: string;
+  /** Short unlock tutorial line, e.g. "이건 ~~한 모듈입니다." */
+  unlockTutorial: string;
   category: string;
   inputPorts: PortDefinition[];
   outputPorts: PortDefinition[];
@@ -94,6 +96,8 @@ export interface SaveData {
   credits: number;
   completedRoundIds: string[];
   unlockedModuleIds: string[];
+  /** Module ids whose unlock tutorial widget was already shown. */
+  introducedModuleIds: string[];
   tutorialStage: number;
   activeRoundId: string;
   bestRoundScores: Record<string, number>;

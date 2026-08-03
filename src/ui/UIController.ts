@@ -17,6 +17,8 @@ export class UIController {
   private session: KitchenSession | undefined;
   private inspectOpen = false;
   private roundSummaryOpen = false;
+  private unlockTutorialOpen = false;
+  private pendingUnlockModuleIds: string[] = [];
 
   constructor(private readonly root: HTMLElement) {
     this.progression = this.saveService.load();
@@ -62,6 +64,7 @@ export class UIController {
       if (event.target === this.byId("inspect-modal")) this.closeInspect();
     });
     this.byId<HTMLButtonElement>("round-summary-close").addEventListener("click", () => this.closeRoundSummary());
+    this.byId<HTMLButtonElement>("unlock-tutorial-ok").addEventListener("click", () => this.closeUnlockTutorial(true));
   }
 
   private startRound(fresh: boolean): void {
@@ -73,11 +76,13 @@ export class UIController {
     this.session = new KitchenSession(this.progression.currentRoundId, this.progression.unlockedModuleIds);
     this.closeInspect();
     this.closeRoundSummary();
+    this.closeUnlockTutorial(false);
     this.scene.loadSession(this.session);
     this.byId("menu-screen").classList.add("is-hidden");
     this.byId("game-screen").classList.remove("is-hidden");
     this.renderRoundInfo();
     this.renderHud();
+    this.maybeShowUnlockTutorial();
   }
 
   private renderMenu(): void {
@@ -114,8 +119,39 @@ export class UIController {
     this.byId("vram-preview").textContent = preview ? `이번 생산 ${preview}` : "이번 생산 0";
   }
 
+  private maybeShowUnlockTutorial(): void {
+    const pending = this.progression.pendingModuleTutorials();
+    if (pending.length === 0) return;
+    this.pendingUnlockModuleIds = pending;
+    this.unlockTutorialOpen = true;
+    this.byId("unlock-tutorial-body").innerHTML = pending.map((moduleId) => {
+      const definition = modulesById.get(moduleId);
+      if (!definition) return "";
+      return `<article class="unlock-item">
+        <span class="unlock-item-icon" aria-hidden="true">${definition.iconKey}</span>
+        <div>
+          <b>${escapeHtml(definition.displayName)}</b>
+          <p>${escapeHtml(definition.unlockTutorial)}</p>
+          <small>VRAM ${definition.vramCost} · 하단 선반에서 집어 슬롯에 꽂으세요</small>
+        </div>
+      </article>`;
+    }).join("");
+    this.byId("unlock-tutorial").classList.remove("is-hidden");
+  }
+
+  private closeUnlockTutorial(markSeen: boolean): void {
+    if (markSeen && this.pendingUnlockModuleIds.length > 0) {
+      this.progression.markModulesIntroduced(this.pendingUnlockModuleIds);
+      this.saveService.save(this.progression);
+    }
+    this.pendingUnlockModuleIds = [];
+    this.unlockTutorialOpen = false;
+    this.byId("unlock-tutorial").classList.add("is-hidden");
+    this.byId("unlock-tutorial-body").innerHTML = "";
+  }
+
   private toggleInspect(): void {
-    if (this.roundSummaryOpen) return;
+    if (this.roundSummaryOpen || this.unlockTutorialOpen) return;
     if (this.inspectOpen) {
       this.closeInspect();
       return;
@@ -229,6 +265,7 @@ export class UIController {
     this.session = undefined;
     this.closeInspect();
     this.closeRoundSummary();
+    this.closeUnlockTutorial(false);
     this.showMenu();
     this.renderMenu();
   }
@@ -236,6 +273,7 @@ export class UIController {
   private showMenu(): void {
     this.closeInspect();
     this.closeRoundSummary();
+    this.closeUnlockTutorial(false);
     this.byId("game-screen").classList.add("is-hidden");
     this.byId("menu-screen").classList.remove("is-hidden");
   }
@@ -318,6 +356,14 @@ function shell(): string {
       <button id="round-summary-close" class="ghost inspect-close" type="button">닫기</button>
       <div id="round-summary-body"></div>
       <button id="next-round" class="primary next-round-btn">다음 라운드 →</button>
+    </div>
+  </div>
+  <div id="unlock-tutorial" class="unlock-tutorial is-hidden" role="dialog" aria-modal="true" aria-label="새 모듈 해금">
+    <div class="unlock-tutorial-card">
+      <p class="inspect-eyebrow">새 모듈 해금</p>
+      <h2>이번 라운드 새 칩</h2>
+      <div id="unlock-tutorial-body" class="unlock-tutorial-body"></div>
+      <button id="unlock-tutorial-ok" class="primary" type="button">알겠어요</button>
     </div>
   </div>
   <div id="toast" class="toast" role="status"></div>

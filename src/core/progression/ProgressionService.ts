@@ -10,6 +10,7 @@ export class ProgressionService {
       credits: 0,
       completedRoundIds: [],
       unlockedModuleIds: ["image-maker"],
+      introducedModuleIds: [],
       tutorialStage: 1,
       activeRoundId: "r01",
       bestRoundScores: {},
@@ -20,6 +21,7 @@ export class ProgressionService {
   get currentRoundId(): string { return this.data.activeRoundId; }
   get credits(): number { return this.data.credits; }
   get unlockedModuleIds(): string[] { return [...this.data.unlockedModuleIds]; }
+  get introducedModuleIds(): string[] { return [...this.data.introducedModuleIds]; }
   get bestRoundScores(): Record<string, number> { return { ...this.data.bestRoundScores }; }
 
   activateRound(roundId: string): void { this.data.activeRoundId = roundId; }
@@ -28,6 +30,18 @@ export class ProgressionService {
   nextRoundId(): string | undefined {
     const index = rounds.findIndex((round) => round.id === this.data.activeRoundId);
     return rounds[index + 1]?.id;
+  }
+
+  /** Chip modules available in this round that have not yet shown an unlock tutorial. */
+  pendingModuleTutorials(roundId = this.data.activeRoundId): string[] {
+    const round = roundsById.get(roundId);
+    if (!round) return [];
+    const introduced = new Set(this.data.introducedModuleIds);
+    return round.availableModuleIds.filter((moduleId) => !introduced.has(moduleId));
+  }
+
+  markModulesIntroduced(moduleIds: string[]): void {
+    this.data.introducedModuleIds = [...new Set([...this.data.introducedModuleIds, ...moduleIds])];
   }
 
   completeActiveRound(score: number, creditReward: number): void {
