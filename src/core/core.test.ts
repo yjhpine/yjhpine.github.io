@@ -217,6 +217,30 @@ describe("KitchenSession rounds and VRAM", () => {
     }
     expect(session.getFloorItems()).toHaveLength(0);
   });
+
+  it("swaps a carried module chip with a filled slot", () => {
+    const session = new KitchenSession("r02", ["image-maker", "style-processor"]);
+    session.tick(0.1);
+    expect(session.pickUpFromShelf("image-maker").ok).toBe(true);
+    expect(session.interactSlot(0).ok).toBe(true);
+    expect(session.getSlots()[0]).toBe("image-maker");
+    expect(session.pickUpFromShelf("style-processor").ok).toBe(true);
+    expect(session.interactSlot(0).ok).toBe(true);
+    expect(session.getSlots()[0]).toBe("style-processor");
+    expect(session.getCarry()).toMatchObject({ kind: "moduleChip", moduleId: "image-maker" });
+  });
+
+  it("rejects swapping the same module chip into its slot", () => {
+    const session = new KitchenSession("r01");
+    session.tick(0.1);
+    session.pickUpFromShelf("image-maker");
+    session.interactSlot(0);
+    session.pickUpFromShelf("image-maker");
+    const result = session.interactSlot(0);
+    expect(result.ok).toBe(false);
+    expect(session.getSlots()[0]).toBe("image-maker");
+    expect(session.getCarry()).toMatchObject({ kind: "moduleChip", moduleId: "image-maker" });
+  });
 });
 
 class MemoryStorage implements StorageAdapter {
