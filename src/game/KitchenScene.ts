@@ -445,7 +445,7 @@ function carryGlyph(carry: CarryItem): string {
   return "";
 }
 
-function shortPrompt(prompt: string, maxChars = 16): string {
+function shortPrompt(prompt: string, maxChars = 20): string {
   const oneLine = prompt.replace(/\s+/g, " ").trim();
   if (oneLine.length <= maxChars) return oneLine;
   return `${oneLine.slice(0, Math.max(1, maxChars - 1))}…`;

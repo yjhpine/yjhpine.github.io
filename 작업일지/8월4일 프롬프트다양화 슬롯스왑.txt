@@ -1,0 +1,15 @@
+제목: 8월4일 프롬프트다양화 슬롯스왑
+
+변경 요약
+- 손님 프롬프트를 모듈이 바로 드러나지 않는 우회 문구로 주문당 6종 확장
+- 주문 튜토리얼에서 정답 칩 직접 힌트 완화
+- 머리 위 말풍선 표시 한도 16→20자
+- 모듈 칩 들고 찬 슬롯 Z 시 손↔슬롯 스왑 (같은 칩이면 거부)
+
+주요 파일
+- src/data/prompts.ts
+- src/data/orders.ts
+- src/core/kitchen/KitchenSession.ts
+- src/game/KitchenScene.ts
+- src/core/core.test.ts
+- Docs/Decisions.md, README.md

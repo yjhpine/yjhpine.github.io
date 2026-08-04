@@ -211,7 +211,13 @@ export class KitchenSession {
     if (this.producing) return fail("생산 중에는 슬롯을 바꿀 수 없습니다.");
     const current = this.slots[index];
     if (this.carry.kind === "moduleChip") {
-      if (current) return fail("슬롯이 비어 있지 않습니다. 먼저 칩을 빼세요.");
+      if (current === this.carry.moduleId) return fail("이미 같은 모듈 칩이 꽂혀 있습니다.");
+      if (current) {
+        const previous = current;
+        this.slots[index] = this.carry.moduleId;
+        this.carry = { kind: "moduleChip", moduleId: previous };
+        return ok(`모듈 칩을 바꿨습니다. 이번 생산 VRAM ${this.getSlotVramPreview()}`, "info");
+      }
       this.slots[index] = this.carry.moduleId;
       this.carry = emptyCarry();
       return ok(`모듈 칩을 슬롯에 꽂았습니다. 이번 생산 VRAM ${this.getSlotVramPreview()}`, "info");
