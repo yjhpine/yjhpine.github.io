@@ -1,7 +1,7 @@
 import { modulesById } from "../../data/modules";
 import { ordersById } from "../../data/orders";
 import { pickPromptForOrder } from "../../data/prompts";
-import { roundsById, type RoundDefinition } from "../../data/rounds";
+import { roundsById, buildRoundOrderQueue, type RoundDefinition } from "../../data/rounds";
 import { GenerationSimulator } from "../generation/GenerationSimulator";
 import { OrderEvaluator } from "../orders/OrderEvaluator";
 import type { OrderDefinition } from "../types";
@@ -56,7 +56,7 @@ export class KitchenSession {
     const unlocked = unlockedModuleIds ?? this.round.availableModuleIds;
     this.shelfModuleIds = unlocked.filter((id) => (CHIP_MODULE_IDS as readonly string[]).includes(id));
     if (!this.shelfModuleIds.includes("image-maker")) this.shelfModuleIds = ["image-maker", ...this.shelfModuleIds];
-    this.orderQueue = buildOrderQueue(this.round);
+    this.orderQueue = buildRoundOrderQueue(this.round);
     this.spawnCustomer();
   }
 
@@ -386,21 +386,6 @@ export class KitchenSession {
       }
     }
   }
-}
-
-function buildOrderQueue(round: RoundDefinition): string[] {
-  const pool = round.customerOrderPool;
-  const queue: string[] = [];
-  for (let i = 0; i < round.targetCustomers; i += 1) {
-    queue.push(pool[i % pool.length]!);
-  }
-  // Prefer variety: shuffle lightly by rotating later slots
-  if (pool.length > 1 && queue.length > 2) {
-    const mid = queue[1]!;
-    queue[1] = queue[queue.length - 1]!;
-    queue[queue.length - 1] = mid;
-  }
-  return queue;
 }
 
 function carryObjectLabel(kind: "order" | "moduleChip" | "product"): string {

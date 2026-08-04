@@ -6,6 +6,7 @@ import { produceSlowdownMultiplier, RoundScoreService } from "./kitchen/RoundSco
 import { ProgressionService } from "./progression/ProgressionService";
 import { SaveService, type StorageAdapter } from "./save/SaveService";
 import { ordersById } from "../data/orders";
+import { buildRoundOrderQueue, rounds } from "../data/rounds";
 import { renderPreview } from "../ui/renderPreview";
 
 function serveCustomer(session: KitchenSession, chips: string[]): void {
@@ -167,7 +168,7 @@ describe("KitchenSession rounds and VRAM", () => {
 
   it("slows production after exceeding VRAM budget", () => {
     const session = new KitchenSession("r02", ["image-maker", "style-processor"]);
-    for (let i = 0; i < 3; i += 1) {
+    for (let i = 0; i < 4; i += 1) {
       session.tick(0.5);
       const customer = session.getWaitingCustomers()[0];
       if (!customer) break;
@@ -184,6 +185,16 @@ describe("KitchenSession rounds and VRAM", () => {
       session.deliverToCustomer(customer.id);
     }
     expect(session.getVramUsed()).toBeGreaterThan(session.getVramBudget());
+  });
+
+  it("keeps optimal clear within each round VRAM budget", () => {
+    const scorer = new RoundScoreService();
+    for (const round of rounds) {
+      const queue = buildRoundOrderQueue(round);
+      const ideal = scorer.idealVramForOrders(queue);
+      expect(queue).toHaveLength(round.targetCustomers);
+      expect(ideal, `${round.id} ideal ${ideal} vs budget ${round.vramBudget}`).toBeLessThanOrEqual(round.vramBudget);
+    }
   });
 
   it("drops carried items to the floor and picks them back up", () => {
