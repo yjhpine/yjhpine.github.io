@@ -1,0 +1,13 @@
+제목: 8월4일 라운드 VRAM 예산 최적맞춤
+
+변경 요약
+- 라운드별 VRAM 예산을 손님 큐 기준 이론 최소(ideal) 이상으로 조정
+  R1 24, R2 44, R3 42, R4 55, R5 61, R6 74
+- buildRoundOrderQueue를 rounds.ts로 공용화해 세션·테스트가 같은 큐를 쓰게 함
+- 최적 클리어 시 예산 미초과 회귀 테스트 추가
+
+주요 파일
+- src/data/rounds.ts
+- src/core/kitchen/KitchenSession.ts
+- src/core/core.test.ts
+- Docs/Decisions.md, Docs/Progress.md
