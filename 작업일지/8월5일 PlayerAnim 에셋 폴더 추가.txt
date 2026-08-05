@@ -1,0 +1,7 @@
+제목: 8월5일 PlayerAnim 에셋 폴더 추가
+
+변경 요약
+- 플레이어 애니메이션 스프라이트용 폴더 생성: public/assets/characters/PlayerAnim/
+
+주요 파일
+- public/assets/characters/PlayerAnim/.gitkeep
