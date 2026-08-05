@@ -38,7 +38,7 @@ const DASH_COOLDOWN = 0.55;
 const INTERACT_RANGE = 70;
 const MAP_W = 960;
 const MAP_H = 540;
-const PLAYER_SCALE = 2.25;
+const PLAYER_SCALE = 3;
 const PLAYER_FRAME = 32;
 
 export class KitchenScene extends Phaser.Scene {
@@ -71,7 +71,7 @@ export class KitchenScene extends Phaser.Scene {
   constructor() { super("Kitchen"); }
 
   preload(): void {
-    const base = "assets/characters/PlayerAnim";
+    const base = "/assets/characters/PlayerAnim";
     this.load.spritesheet("cat-idle", `${base}/Cat_Idle.png`, { frameWidth: PLAYER_FRAME, frameHeight: PLAYER_FRAME });
     this.load.spritesheet("cat-walk", `${base}/Cat_Walk.png`, { frameWidth: PLAYER_FRAME, frameHeight: PLAYER_FRAME });
     this.load.spritesheet("cat-handle-idle", `${base}/Cat_Handle_Idle.png`, { frameWidth: PLAYER_FRAME, frameHeight: PLAYER_FRAME });
