@@ -1,0 +1,10 @@
+제목: 8월5일 플레이어 스프라이트 가시성 보강
+
+변경 요약
+- 라이브 확인: 고양이 스프라이트는 이미 적용됨(노란 네모 아님). favicon 404만 무관
+- 캐릭터 스케일 2.25→3, pixelArt 렌더, BASE_URL 경로, 게임 시작 시 scale.refresh
+
+주요 파일
+- src/game/KitchenScene.ts
+- src/main.ts
+- src/ui/UIController.ts

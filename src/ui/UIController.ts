@@ -80,6 +80,7 @@ export class UIController {
     this.scene.loadSession(this.session);
     this.byId("menu-screen").classList.add("is-hidden");
     this.byId("game-screen").classList.remove("is-hidden");
+    this.scene.scale.refresh();
     this.renderRoundInfo();
     this.renderHud();
     this.maybeShowUnlockTutorial();

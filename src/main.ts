@@ -15,7 +15,7 @@ const game = new Phaser.Game({
   height: 540,
   scene: [kitchenScene],
   scale: { mode: Phaser.Scale.FIT, width: 960, height: 540, autoCenter: Phaser.Scale.CENTER_BOTH },
-  render: { antialias: true, pixelArt: false },
+  render: { antialias: false, pixelArt: true },
 });
 
 ui.attachGame(game);
