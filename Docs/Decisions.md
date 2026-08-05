@@ -1,5 +1,11 @@
 # Decisions
 
+## 2026-08-05 (플레이어 고양이 스프라이트)
+
+- 플레이어는 `public/assets/characters/PlayerAnim/`의 32×32 시트를 사용한다.
+- Idle 4프레임 / Walk 2프레임, 운반 시 Handle Idle·Walk로 전환한다.
+- 시트 검정 배경은 투명으로 전처리하고, Phaser nearest 필터로 픽셀을 유지한다.
+
 ## 2026-08-04 (라운드 VRAM 예산 = 최적 파이프라인)
 
 - 각 라운드 `vramBudget`은 해당 라운드 손님 큐의 **이론 최소 VRAM(ideal)** 이상이 되도록 맞춘다.

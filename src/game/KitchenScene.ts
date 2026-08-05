@@ -38,12 +38,14 @@ const DASH_COOLDOWN = 0.55;
 const INTERACT_RANGE = 70;
 const MAP_W = 960;
 const MAP_H = 540;
+const PLAYER_SCALE = 2.25;
+const PLAYER_FRAME = 32;
 
 export class KitchenScene extends Phaser.Scene {
   readonly eventBus = new GameEventBus<SceneEvents>();
   private session: KitchenSession | undefined;
   private player!: Phaser.GameObjects.Container;
-  private playerBody!: Phaser.GameObjects.Rectangle;
+  private playerSprite!: Phaser.GameObjects.Sprite;
   private carryIcon!: Phaser.GameObjects.Text;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keyW!: Phaser.Input.Keyboard.Key;
@@ -63,8 +65,18 @@ export class KitchenScene extends Phaser.Scene {
   private dashCooldown = 0;
   private dashDirX = 0;
   private dashDirY = -1;
+  private isMoving = false;
+  private currentAnimKey = "";
 
   constructor() { super("Kitchen"); }
+
+  preload(): void {
+    const base = "assets/characters/PlayerAnim";
+    this.load.spritesheet("cat-idle", `${base}/Cat_Idle.png`, { frameWidth: PLAYER_FRAME, frameHeight: PLAYER_FRAME });
+    this.load.spritesheet("cat-walk", `${base}/Cat_Walk.png`, { frameWidth: PLAYER_FRAME, frameHeight: PLAYER_FRAME });
+    this.load.spritesheet("cat-handle-idle", `${base}/Cat_Handle_Idle.png`, { frameWidth: PLAYER_FRAME, frameHeight: PLAYER_FRAME });
+    this.load.spritesheet("cat-handle-walk", `${base}/Cat_Handle_Walk.png`, { frameWidth: PLAYER_FRAME, frameHeight: PLAYER_FRAME });
+  }
 
   create(): void {
     this.cameras.main.setBackgroundColor("#0b2137");
@@ -72,10 +84,16 @@ export class KitchenScene extends Phaser.Scene {
     this.floor = this.add.graphics();
     this.drawFloor();
     this.buildStations();
-    this.playerBody = this.add.rectangle(0, 0, 28, 36, 0xf7d047).setStrokeStyle(2, 0xffffff, 0.9);
-    this.carryIcon = this.add.text(0, -34, "", { fontSize: "18px", align: "center" }).setOrigin(0.5);
-    const face = this.add.text(0, -2, "🙂", { fontSize: "16px" }).setOrigin(0.5);
-    this.player = this.add.container(MAP_W / 2, MAP_H * 0.62, [this.playerBody, face, this.carryIcon]);
+    this.createPlayerAnimations();
+    this.playerSprite = this.add.sprite(0, 0, "cat-idle", 0).setOrigin(0.5, 0.7);
+    this.playerSprite.setScale(PLAYER_SCALE);
+    for (const key of ["cat-idle", "cat-walk", "cat-handle-idle", "cat-handle-walk"]) {
+      this.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
+    }
+    this.carryIcon = this.add.text(0, -38, "", { fontSize: "16px", align: "center" }).setOrigin(0.5);
+    this.player = this.add.container(MAP_W / 2, MAP_H * 0.62, [this.playerSprite, this.carryIcon]);
+    this.player.setDepth(5);
+    this.playPlayerAnim("player-idle");
     this.highlight = this.add.rectangle(0, 0, 10, 10, 0x22d3ee, 0).setStrokeStyle(2, 0x22d3ee, 0.9).setVisible(false);
 
     const keyboard = this.input.keyboard!;
@@ -98,6 +116,7 @@ export class KitchenScene extends Phaser.Scene {
     this.syncCustomers();
     this.syncFloorItems();
     this.syncCarryVisual();
+    this.syncPlayerAnim();
     this.eventBus.emit("sessionChanged", undefined);
   }
 
@@ -113,7 +132,30 @@ export class KitchenScene extends Phaser.Scene {
     this.syncFloorItems();
     this.refreshStationLabels();
     this.syncCarryVisual();
+    this.syncPlayerAnim();
     this.updateHighlight();
+  }
+
+  private createPlayerAnimations(): void {
+    if (this.anims.exists("player-idle")) return;
+    this.anims.create({ key: "player-idle", frames: this.anims.generateFrameNumbers("cat-idle", { start: 0, end: 3 }), frameRate: 6, repeat: -1 });
+    this.anims.create({ key: "player-walk", frames: this.anims.generateFrameNumbers("cat-walk", { start: 0, end: 1 }), frameRate: 8, repeat: -1 });
+    this.anims.create({ key: "player-handle-idle", frames: this.anims.generateFrameNumbers("cat-handle-idle", { start: 0, end: 3 }), frameRate: 6, repeat: -1 });
+    this.anims.create({ key: "player-handle-walk", frames: this.anims.generateFrameNumbers("cat-handle-walk", { start: 0, end: 1 }), frameRate: 8, repeat: -1 });
+  }
+
+  private playPlayerAnim(key: string): void {
+    if (this.currentAnimKey === key) return;
+    this.currentAnimKey = key;
+    this.playerSprite.play(key, true);
+  }
+
+  private syncPlayerAnim(): void {
+    const carrying = !!this.session && this.session.getCarry().kind !== "none";
+    const moving = this.isMoving || this.dashTimer > 0;
+    if (carrying) this.playPlayerAnim(moving ? "player-handle-walk" : "player-handle-idle");
+    else this.playPlayerAnim(moving ? "player-walk" : "player-idle");
+    if (this.facingX !== 0) this.playerSprite.setFlipX(this.facingX < 0);
   }
 
   private tryDash(): void {
@@ -131,14 +173,12 @@ export class KitchenScene extends Phaser.Scene {
     }
     this.dashTimer = DASH_DURATION;
     this.dashCooldown = DASH_COOLDOWN;
-    this.playerBody.setFillStyle(0xffffff);
     this.tweens.add({
       targets: this.player,
       scaleX: 1.12,
       scaleY: 0.9,
       duration: 80,
       yoyo: true,
-      onComplete: () => this.playerBody.setFillStyle(0xf7d047),
     });
   }
 
@@ -155,10 +195,12 @@ export class KitchenScene extends Phaser.Scene {
   private movePlayer(dt: number): void {
     let vx = 0;
     let vy = 0;
+    this.isMoving = false;
     if (this.dashTimer > 0) {
       this.dashTimer = Math.max(0, this.dashTimer - dt);
       vx = this.dashDirX * DASH_SPEED * dt;
       vy = this.dashDirY * DASH_SPEED * dt;
+      this.isMoving = true;
     } else {
       const input = this.readMoveInput();
       if (input.x === 0 && input.y === 0) return;
@@ -167,6 +209,7 @@ export class KitchenScene extends Phaser.Scene {
       this.facingY = input.y / len;
       vx = this.facingX * SPEED * dt;
       vy = this.facingY * SPEED * dt;
+      this.isMoving = true;
     }
     let nx = Phaser.Math.Clamp(this.player.x + vx, 30, MAP_W - 30);
     let ny = Phaser.Math.Clamp(this.player.y + vy, 80, MAP_H - 30);
