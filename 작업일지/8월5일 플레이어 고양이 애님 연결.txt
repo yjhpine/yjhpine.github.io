@@ -1,0 +1,11 @@
+제목: 8월5일 플레이어 고양이 애님 연결
+
+변경 요약
+- PlayerAnim 32x32 시트(Cat_Idle/Walk, Cat_Handle_Idle/Walk)를 플레이어에 연결
+- 이동 시 walk, 정지 시 idle, 운반 중이면 Handle 변형 사용
+- 좌우 이동 시 flipX, 검정 배경 투명 처리, nearest 필터 적용
+
+주요 파일
+- src/game/KitchenScene.ts
+- public/assets/characters/PlayerAnim/*.png
+- Docs/Decisions.md
