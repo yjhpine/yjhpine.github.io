@@ -87,6 +87,8 @@ export class KitchenScene extends Phaser.Scene {
     this.createPlayerAnimations();
     this.playerSprite = this.add.sprite(0, 0, "cat-idle", 0).setOrigin(0.5, 0.7);
     this.playerSprite.setScale(PLAYER_SCALE);
+    // Sheet faces right; start mirrored so the character faces left by default.
+    this.playerSprite.setFlipX(true);
     for (const key of ["cat-idle", "cat-walk", "cat-handle-idle", "cat-handle-walk"]) {
       this.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
     }
@@ -155,7 +157,8 @@ export class KitchenScene extends Phaser.Scene {
     const moving = this.isMoving || this.dashTimer > 0;
     if (carrying) this.playPlayerAnim(moving ? "player-handle-walk" : "player-handle-idle");
     else this.playPlayerAnim(moving ? "player-walk" : "player-idle");
-    if (this.facingX !== 0) this.playerSprite.setFlipX(this.facingX < 0);
+    // Mirrored sheet: face right only when moving right, otherwise keep flipped.
+    this.playerSprite.setFlipX(this.facingX <= 0);
   }
 
   private tryDash(): void {
