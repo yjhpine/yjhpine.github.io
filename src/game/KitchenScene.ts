@@ -102,7 +102,7 @@ export class KitchenScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.cameras.main.setBackgroundColor("#1a2a38");
+    this.cameras.main.setBackgroundColor("#000000");
     this.cameras.main.setBounds(0, 0, MAP_W, MAP_H);
     this.setNearestFilter([
       "cat-idle", "cat-walk", "cat-handle-idle", "cat-handle-walk",
