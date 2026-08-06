@@ -86,8 +86,7 @@ export class KitchenScene extends Phaser.Scene {
     this.load.spritesheet("cat-handle-idle", `${player}/Cat_Handle_Idle.png`, { frameWidth: PLAYER_FRAME, frameHeight: PLAYER_FRAME });
     this.load.spritesheet("cat-handle-walk", `${player}/Cat_Handle_Walk.png`, { frameWidth: PLAYER_FRAME, frameHeight: PLAYER_FRAME });
 
-    this.load.image("floor-tile", `${FACTORY}/floor-tile.png`);
-    this.load.image("wall-boxes", `${FACTORY}/wall-boxes.png`);
+    this.load.image("box-floor", `${FACTORY}/Box_Floor.png`);
     this.load.image("conveyor", `${FACTORY}/conveyor.png`);
     this.load.image("counter", `${FACTORY}/counter.png`);
     this.load.image("station-input", `${FACTORY}/station-input.png`);
@@ -107,11 +106,15 @@ export class KitchenScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, MAP_W, MAP_H);
     this.setNearestFilter([
       "cat-idle", "cat-walk", "cat-handle-idle", "cat-handle-walk",
-      "floor-tile", "wall-boxes", "conveyor", "counter",
+      "conveyor", "counter",
       "station-input", "station-slot", "station-produce", "station-output",
       "customer", "module-locked", "drop-shadow",
       ...Object.values(MODULE_SPRITE),
     ]);
+    // Box_Floor is a detailed cardboard texture — keep bilinear sampling.
+    if (this.textures.exists("box-floor")) {
+      this.textures.get("box-floor").setFilter(Phaser.Textures.FilterMode.LINEAR);
+    }
     this.drawFloor();
     this.buildStations();
     this.createPlayerAnimations();
@@ -549,8 +552,10 @@ export class KitchenScene extends Phaser.Scene {
   }
 
   private drawFloor(): void {
-    this.add.tileSprite(0, 0, MAP_W, MAP_H, "floor-tile").setOrigin(0, 0).setDepth(-20);
-    this.add.tileSprite(0, 0, MAP_W, 64, "wall-boxes").setOrigin(0, 0).setDepth(-19);
+    const floor = this.add.image(MAP_W / 2, MAP_H / 2, "box-floor").setDepth(-20);
+    const tex = this.textures.get("box-floor").getSourceImage() as HTMLImageElement;
+    const scale = Math.max(MAP_W / tex.width, MAP_H / tex.height);
+    floor.setScale(scale);
     this.add.tileSprite(MAP_W / 2, 56, 840, 36, "counter").setOrigin(0.5).setDepth(-18);
     this.add.tileSprite(MAP_W / 2, 270, 700, 56, "conveyor").setOrigin(0.5).setDepth(-17);
     this.add.tileSprite(MAP_W / 2, 470, 860, 40, "counter").setOrigin(0.5).setDepth(-18);

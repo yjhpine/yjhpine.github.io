@@ -1,0 +1,6 @@
+제목: 8월6일 Box_Floor 바닥 교체
+
+변경 요약
+- cursor/factory-pixel-sprites-7d1c 에 푸시된 Box_Floor.png 를 게임 바닥 배경으로 적용했다.
+- 기존 floor-tile.png, wall-boxes.png 에셋과 KitchenScene 참조를 삭제했다.
+- 카운터/컨베이어 오버레이는 유지했다.

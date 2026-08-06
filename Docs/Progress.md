@@ -2,6 +2,7 @@
 
 ## 2026-08-06
 
+- 게임 바닥을 `Box_Floor.png`(열린 골판지 상자)로 교체하고 `floor-tile` / `wall-boxes` 에셋을 삭제했다.
 - 공장 배경·손님·모듈 픽셀 스프라이트를 추가하고 KitchenScene에 적용했다.
 - 콘셉트: 골판지 상자 안에서 일하는 고양이. 플레이어 Cat_* 스프라이트는 수정하지 않고 팔레트만 참고.
 - `public/assets/factory/*.png` + `scripts/generate-factory-sprites.py`.

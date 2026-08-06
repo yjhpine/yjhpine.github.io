@@ -75,27 +75,11 @@ def save(name: str, im: Image.Image) -> None:
 
 
 def make_floor() -> None:
-    im = img(32, 32)
-    for y in range(0, 32, 8):
-        for x in range(0, 32, 8):
-            put(im, x, y, FLOOR, 8, 8)
-            put(im, x, y, FLOOR_H, 8, 1)
-            put(im, x, y, FLOOR_H, 1, 8)
-            put(im, x + 1, y + 1, FLOOR_L, 1, 1)
-            put(im, x + 2, y + 2, FLOOR_H, 1, 1)
-            put(im, x + 3, y + 3, FLOOR_L, 1, 1)
-    save("floor-tile.png", im)
+    raise RuntimeError("floor-tile.png retired — use Box_Floor.png")
 
 
 def make_wall() -> None:
-    im = img(64, 32)
-    put(im, 0, 0, WALL_D, 64, 32)
-    put(im, 0, 0, WALL, 64, 18)
-    for i, ox in enumerate((4, 24, 44)):
-        box_frame(im, ox, 8, 16, 18)
-        put(im, ox + 2, 10, INSET, 12, 10)
-        tiny_cat(im, ox + 8, 16 + (i % 2))
-    save("wall-boxes.png", im)
+    raise RuntimeError("wall-boxes.png retired — use Box_Floor.png")
 
 
 def make_conveyor() -> None:
@@ -176,8 +160,7 @@ def make_shadow() -> None:
 
 
 def main() -> None:
-    make_floor()
-    make_wall()
+    # Floor/wall: use hand-authored public/assets/factory/Box_Floor.png (do not regenerate).
     make_conveyor()
     make_counter()
     make_station("station-input.png", (90, 140, 200, 255))
