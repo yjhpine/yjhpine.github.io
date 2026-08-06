@@ -58,8 +58,18 @@ h1 { font-size: clamp(3rem, 9vw, 6rem); margin: 20px 0 10px; letter-spacing: -.0
 .eyebrow { color: #22d3ee; font-weight: 800; letter-spacing: .08em; font-size: .68rem; text-transform: uppercase; }
 .production { white-space: nowrap; }
 .tutorial-message { margin: 0; padding: 8px 16px; color: #122838; background: #b9edf4; font-size: .85rem; font-weight: 650; }
-.game-canvas { min-height: 480px; flex: 1; position: relative; overflow: hidden; touch-action: none; }
-.game-canvas canvas { display: block; }
+.game-canvas {
+  min-height: 560px;
+  aspect-ratio: 1 / 1;
+  width: min(100%, 720px);
+  margin-inline: auto;
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  touch-action: none;
+  background: #000;
+}
+.game-canvas canvas { display: block; margin: 0 auto; }
 .canvas-help { margin: 0; padding: 8px 12px; text-align: center; color: #7ea8bd; border-top: 1px solid #315d78; font-size: .75rem; }
 
 .module-palette { display: grid; gap: 8px; }
@@ -392,4 +402,4 @@ dt { color: #7fb9d3; font-size: .68rem; font-weight: 800; } dd { margin: 4px 0 0
 }
 
 @media (max-width: 1050px) { .game-layout, .game-layout.kitchen-layout--wide { grid-template-columns: 210px minmax(480px, 1fr); } }
-@media (max-width: 760px) { .app-shell { padding: 8px; }.topbar, .topbar > div, .order-card { align-items: stretch; flex-direction: column; }.top-actions { align-items: center; }.game-layout, .game-layout.kitchen-layout--wide { grid-template-columns: 1fr; }.left-panel { border-right: 0; border-bottom: 1px solid #315d78; }.game-canvas { min-height: 360px; }.score-grid { grid-template-columns: repeat(3, 1fr); }.controls-chip { white-space: normal; }.factory-status { display: none; } }
+@media (max-width: 760px) { .app-shell { padding: 8px; }.topbar, .topbar > div, .order-card { align-items: stretch; flex-direction: column; }.top-actions { align-items: center; }.game-layout, .game-layout.kitchen-layout--wide { grid-template-columns: 1fr; }.left-panel { border-right: 0; border-bottom: 1px solid #315d78; }.game-canvas { min-height: 420px; width: min(100%, 560px); }.score-grid { grid-template-columns: repeat(3, 1fr); }.controls-chip { white-space: normal; }.factory-status { display: none; } }

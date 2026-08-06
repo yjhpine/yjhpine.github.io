@@ -36,8 +36,8 @@ const DASH_SPEED = 780;
 const DASH_DURATION = 0.12;
 const DASH_COOLDOWN = 0.55;
 const INTERACT_RANGE = 70;
-const MAP_W = 960;
-const MAP_H = 540;
+const MAP_W = 720;
+const MAP_H = 720;
 const PLAYER_SCALE = 3;
 const PLAYER_FRAME = 32;
 const FACTORY = "/assets/factory";
@@ -249,8 +249,8 @@ export class KitchenScene extends Phaser.Scene {
       vy = this.facingY * SPEED * dt;
       this.isMoving = true;
     }
-    let nx = Phaser.Math.Clamp(this.player.x + vx, 30, MAP_W - 30);
-    let ny = Phaser.Math.Clamp(this.player.y + vy, 80, MAP_H - 30);
+    let nx = Phaser.Math.Clamp(this.player.x + vx, 40, MAP_W - 40);
+    let ny = Phaser.Math.Clamp(this.player.y + vy, 100, MAP_H - 40);
     for (const zone of this.zones) {
       if (zone.target.kind === "customer" || zone.target.kind === "shelf") continue;
       const near = Math.abs(nx - zone.x) < zone.w / 2 + 16 && Math.abs(ny - zone.y) < zone.h / 2 + 16;
@@ -368,22 +368,22 @@ export class KitchenScene extends Phaser.Scene {
 
   private buildStations(): void {
     this.zones = [
-      { target: { kind: "input" }, x: 220, y: 270, w: 100, h: 70, label: "입력기" },
-      { target: { kind: "slot", index: 0 }, x: 360, y: 270, w: 78, h: 70, label: "슬롯1" },
-      { target: { kind: "slot", index: 1 }, x: 460, y: 270, w: 78, h: 70, label: "슬롯2" },
-      { target: { kind: "slot", index: 2 }, x: 560, y: 270, w: 78, h: 70, label: "슬롯3" },
-      { target: { kind: "produce" }, x: 660, y: 270, w: 88, h: 70, label: "생산" },
-      { target: { kind: "output" }, x: 780, y: 270, w: 100, h: 70, label: "출구" },
+      { target: { kind: "input" }, x: 90, y: 360, w: 100, h: 70, label: "입력기" },
+      { target: { kind: "slot", index: 0 }, x: 210, y: 360, w: 78, h: 70, label: "슬롯1" },
+      { target: { kind: "slot", index: 1 }, x: 310, y: 360, w: 78, h: 70, label: "슬롯2" },
+      { target: { kind: "slot", index: 2 }, x: 410, y: 360, w: 78, h: 70, label: "슬롯3" },
+      { target: { kind: "produce" }, x: 520, y: 360, w: 88, h: 70, label: "생산" },
+      { target: { kind: "output" }, x: 640, y: 360, w: 100, h: 70, label: "출구" },
     ];
 
     const shelfModules = ["image-maker", "style-processor", "ban-list", "composition-planner", "sharpener", "quality-checker"];
     shelfModules.forEach((moduleId, index) => {
-      const x = 120 + index * 130;
+      const x = 70 + index * 116;
       this.zones.push({
         target: { kind: "shelf", moduleId },
         x,
-        y: 430,
-        w: 110,
+        y: 580,
+        w: 100,
         h: 64,
         label: modulesById.get(moduleId)?.displayName ?? moduleId,
       });
@@ -409,7 +409,7 @@ export class KitchenScene extends Phaser.Scene {
     }
 
     this.add
-      .text(MAP_W / 2, 22, "손님 카운터", {
+      .text(MAP_W / 2, 28, "손님 카운터", {
         fontSize: "13px",
         color: "#fff8f0",
         backgroundColor: "#3a2a1acc",
@@ -471,8 +471,8 @@ export class KitchenScene extends Phaser.Scene {
     }
     waiting.forEach((customer, index) => {
       let view = this.customerViews.get(customer.id);
-      const x = 280 + index * 180;
-      const y = 78;
+      const x = 150 + index * 140;
+      const y = 110;
       if (!view) {
         const sprite = this.add.image(0, 10, "customer").setScale(2.4).setOrigin(0.5, 0.85);
         const promptBubble = this.createPromptBubble(customer.prompt);
@@ -552,13 +552,13 @@ export class KitchenScene extends Phaser.Scene {
   }
 
   private drawFloor(): void {
-    const floor = this.add.image(MAP_W / 2, MAP_H / 2, "box-floor").setDepth(-20);
-    const tex = this.textures.get("box-floor").getSourceImage() as HTMLImageElement;
-    const scale = Math.max(MAP_W / tex.width, MAP_H / tex.height);
-    floor.setScale(scale);
-    this.add.tileSprite(MAP_W / 2, 56, 840, 36, "counter").setOrigin(0.5).setDepth(-18);
-    this.add.tileSprite(MAP_W / 2, 270, 700, 56, "conveyor").setOrigin(0.5).setDepth(-17);
-    this.add.tileSprite(MAP_W / 2, 470, 860, 40, "counter").setOrigin(0.5).setDepth(-18);
+    this.add
+      .image(MAP_W / 2, MAP_H / 2, "box-floor")
+      .setDisplaySize(MAP_W, MAP_H)
+      .setDepth(-20);
+    this.add.tileSprite(MAP_W / 2, 90, 620, 36, "counter").setOrigin(0.5).setDepth(-18);
+    this.add.tileSprite(MAP_W / 2, 360, 620, 56, "conveyor").setOrigin(0.5).setDepth(-17);
+    this.add.tileSprite(MAP_W / 2, 620, 660, 40, "counter").setOrigin(0.5).setDepth(-18);
   }
 }
 
