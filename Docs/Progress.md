@@ -1,5 +1,11 @@
 # Progress
 
+## 2026-08-06
+
+- 공장 배경·손님·모듈 픽셀 스프라이트를 추가하고 KitchenScene에 적용했다.
+- 콘셉트: 골판지 상자 안에서 일하는 고양이. 플레이어 Cat_* 스프라이트는 수정하지 않고 팔레트만 참고.
+- `public/assets/factory/*.png` + `scripts/generate-factory-sprites.py`.
+
 ## 2026-08-05
 
 - 플레이어를 PlayerAnim 고양이 스프라이트(idle/walk + 운반)로 교체했다.
