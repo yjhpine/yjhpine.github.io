@@ -1,0 +1,13 @@
+제목: 8월6일 공장 픽셀스프라이트 적용
+
+변경 요약
+- 플레이어 고양이 스프라이트(Cat_*)는 수정하지 않고 팔레트·스타일만 참고했다.
+- 골판지 상자 속 고양이 콘셉트로 배경/손님/모듈/스테이션 PNG를 생성했다.
+  - public/assets/factory/ (floor, wall, conveyor, counter, stations, modules, customer, shadow)
+  - scripts/generate-factory-sprites.py
+- KitchenScene에 타일/이미지 스프라이트를 연결했다.
+  - 바닥·벽·컨베이어·카운터
+  - 입력/슬롯/생산/출구 스테이션
+  - 선반 모듈(잠김 포함)
+  - 손님 카운터 스프라이트 + 프롬프트 말풍선
+- typecheck / test(22) / build 통과.

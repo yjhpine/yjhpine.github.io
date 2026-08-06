@@ -40,6 +40,16 @@ const MAP_W = 960;
 const MAP_H = 540;
 const PLAYER_SCALE = 3;
 const PLAYER_FRAME = 32;
+const FACTORY = "/assets/factory";
+
+const MODULE_SPRITE: Record<string, string> = {
+  "image-maker": "module-image-maker",
+  "style-processor": "module-style-processor",
+  "ban-list": "module-ban-list",
+  "composition-planner": "module-composition-planner",
+  sharpener: "module-sharpener",
+  "quality-checker": "module-quality-checker",
+};
 
 export class KitchenScene extends Phaser.Scene {
   readonly eventBus = new GameEventBus<SceneEvents>();
@@ -57,7 +67,6 @@ export class KitchenScene extends Phaser.Scene {
   private customerViews = new Map<string, Phaser.GameObjects.Container>();
   private floorViews = new Map<string, Phaser.GameObjects.Container>();
   private highlight?: Phaser.GameObjects.Rectangle;
-  private floor!: Phaser.GameObjects.Graphics;
   private interactReady = true;
   private facingX = 0;
   private facingY = -1;
@@ -71,31 +80,49 @@ export class KitchenScene extends Phaser.Scene {
   constructor() { super("Kitchen"); }
 
   preload(): void {
-    const base = "/assets/characters/PlayerAnim";
-    this.load.spritesheet("cat-idle", `${base}/Cat_Idle.png`, { frameWidth: PLAYER_FRAME, frameHeight: PLAYER_FRAME });
-    this.load.spritesheet("cat-walk", `${base}/Cat_Walk.png`, { frameWidth: PLAYER_FRAME, frameHeight: PLAYER_FRAME });
-    this.load.spritesheet("cat-handle-idle", `${base}/Cat_Handle_Idle.png`, { frameWidth: PLAYER_FRAME, frameHeight: PLAYER_FRAME });
-    this.load.spritesheet("cat-handle-walk", `${base}/Cat_Handle_Walk.png`, { frameWidth: PLAYER_FRAME, frameHeight: PLAYER_FRAME });
+    const player = "/assets/characters/PlayerAnim";
+    this.load.spritesheet("cat-idle", `${player}/Cat_Idle.png`, { frameWidth: PLAYER_FRAME, frameHeight: PLAYER_FRAME });
+    this.load.spritesheet("cat-walk", `${player}/Cat_Walk.png`, { frameWidth: PLAYER_FRAME, frameHeight: PLAYER_FRAME });
+    this.load.spritesheet("cat-handle-idle", `${player}/Cat_Handle_Idle.png`, { frameWidth: PLAYER_FRAME, frameHeight: PLAYER_FRAME });
+    this.load.spritesheet("cat-handle-walk", `${player}/Cat_Handle_Walk.png`, { frameWidth: PLAYER_FRAME, frameHeight: PLAYER_FRAME });
+
+    this.load.image("floor-tile", `${FACTORY}/floor-tile.png`);
+    this.load.image("wall-boxes", `${FACTORY}/wall-boxes.png`);
+    this.load.image("conveyor", `${FACTORY}/conveyor.png`);
+    this.load.image("counter", `${FACTORY}/counter.png`);
+    this.load.image("station-input", `${FACTORY}/station-input.png`);
+    this.load.image("station-slot", `${FACTORY}/station-slot.png`);
+    this.load.image("station-produce", `${FACTORY}/station-produce.png`);
+    this.load.image("station-output", `${FACTORY}/station-output.png`);
+    this.load.image("customer", `${FACTORY}/customer.png`);
+    this.load.image("module-locked", `${FACTORY}/module-locked.png`);
+    this.load.image("drop-shadow", `${FACTORY}/drop-shadow.png`);
+    for (const [moduleId, key] of Object.entries(MODULE_SPRITE)) {
+      this.load.image(key, `${FACTORY}/module-${moduleId}.png`);
+    }
   }
 
   create(): void {
-    this.cameras.main.setBackgroundColor("#0b2137");
+    this.cameras.main.setBackgroundColor("#1a2a38");
     this.cameras.main.setBounds(0, 0, MAP_W, MAP_H);
-    this.floor = this.add.graphics();
+    this.setNearestFilter([
+      "cat-idle", "cat-walk", "cat-handle-idle", "cat-handle-walk",
+      "floor-tile", "wall-boxes", "conveyor", "counter",
+      "station-input", "station-slot", "station-produce", "station-output",
+      "customer", "module-locked", "drop-shadow",
+      ...Object.values(MODULE_SPRITE),
+    ]);
     this.drawFloor();
     this.buildStations();
     this.createPlayerAnimations();
     this.playerSprite = this.add.sprite(0, 0, "cat-idle", 0).setOrigin(0.5, 0.7);
     this.playerSprite.setScale(PLAYER_SCALE);
     this.playerSprite.setFlipX(false);
-    for (const key of ["cat-idle", "cat-walk", "cat-handle-idle", "cat-handle-walk"]) {
-      this.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
-    }
     this.carryIcon = this.add.text(0, -38, "", { fontSize: "16px", align: "center" }).setOrigin(0.5);
     this.player = this.add.container(MAP_W / 2, MAP_H * 0.62, [this.playerSprite, this.carryIcon]);
     this.player.setDepth(5);
     this.playPlayerAnim("player-idle");
-    this.highlight = this.add.rectangle(0, 0, 10, 10, 0x22d3ee, 0).setStrokeStyle(2, 0x22d3ee, 0.9).setVisible(false);
+    this.highlight = this.add.rectangle(0, 0, 10, 10, 0xf0c060, 0).setStrokeStyle(2, 0xf0c060, 0.95).setVisible(false);
 
     const keyboard = this.input.keyboard!;
     this.cursors = keyboard.createCursorKeys();
@@ -108,6 +135,12 @@ export class KitchenScene extends Phaser.Scene {
     keyboard.on("keydown-C", () => this.tryDash());
 
     this.game.events.emit("kitchen-ready", this);
+  }
+
+  private setNearestFilter(keys: string[]): void {
+    for (const key of keys) {
+      if (this.textures.exists(key)) this.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
+    }
   }
 
   loadSession(session: KitchenSession): void {
@@ -321,6 +354,15 @@ export class KitchenScene extends Phaser.Scene {
     this.highlight.setPosition(x, y).setSize(w, h).setVisible(true);
   }
 
+  private stationTexture(target: InteractTarget): string {
+    if (target.kind === "input") return "station-input";
+    if (target.kind === "produce") return "station-produce";
+    if (target.kind === "output") return "station-output";
+    if (target.kind === "slot") return "station-slot";
+    if (target.kind === "shelf") return "module-locked";
+    return "station-slot";
+  }
+
   private buildStations(): void {
     this.zones = [
       { target: { kind: "input" }, x: 220, y: 270, w: 100, h: 70, label: "입력기" },
@@ -334,21 +376,44 @@ export class KitchenScene extends Phaser.Scene {
     const shelfModules = ["image-maker", "style-processor", "ban-list", "composition-planner", "sharpener", "quality-checker"];
     shelfModules.forEach((moduleId, index) => {
       const x = 120 + index * 130;
-      this.zones.push({ target: { kind: "shelf", moduleId }, x, y: 430, w: 110, h: 64, label: modulesById.get(moduleId)?.displayName ?? moduleId });
+      this.zones.push({
+        target: { kind: "shelf", moduleId },
+        x,
+        y: 430,
+        w: 110,
+        h: 64,
+        label: modulesById.get(moduleId)?.displayName ?? moduleId,
+      });
     });
 
     for (const zone of this.zones) {
       const key = JSON.stringify(zone.target);
-      const color = zone.target.kind === "shelf" ? 0x1e526e : zone.target.kind === "produce" ? 0x8a5a12 : 0x173a58;
-      const body = this.add.rectangle(0, 0, zone.w, zone.h, color).setStrokeStyle(2, 0x6e9ab8, 1);
-      const text = this.add.text(0, 0, zone.label, { fontSize: "12px", color: "#eaf8ff", align: "center", wordWrap: { width: zone.w - 8 } }).setOrigin(0.5);
+      const scale = zone.target.kind === "shelf" ? 2.2 : 2;
+      const body = this.add.image(0, -4, this.stationTexture(zone.target)).setScale(scale);
+      const text = this.add
+        .text(0, zone.target.kind === "shelf" ? 34 : 38, zone.label, {
+          fontSize: "11px",
+          color: "#fff8f0",
+          align: "center",
+          backgroundColor: "#3a2a1acc",
+          padding: { x: 4, y: 2 },
+          wordWrap: { width: zone.w + 8 },
+        })
+        .setOrigin(0.5);
       const container = this.add.container(zone.x, zone.y, [body, text]);
+      container.setDepth(1);
       this.zoneViews.set(key, container);
     }
 
-    // Counter banner
-    this.add.rectangle(MAP_W / 2, 56, 820, 56, 0x12324a).setStrokeStyle(2, 0x3f6f89, 1);
-    this.add.text(MAP_W / 2, 42, "손님 카운터", { fontSize: "14px", color: "#8ec6df" }).setOrigin(0.5);
+    this.add
+      .text(MAP_W / 2, 22, "손님 카운터", {
+        fontSize: "13px",
+        color: "#fff8f0",
+        backgroundColor: "#3a2a1acc",
+        padding: { x: 8, y: 3 },
+      })
+      .setOrigin(0.5)
+      .setDepth(2);
   }
 
   private refreshStationLabels(): void {
@@ -362,21 +427,34 @@ export class KitchenScene extends Phaser.Scene {
     for (const zone of this.zones) {
       const view = this.zoneViews.get(JSON.stringify(zone.target));
       if (!view) continue;
+      const body = view.list[0] as Phaser.GameObjects.Image;
       const label = view.list[1] as Phaser.GameObjects.Text;
-      const body = view.list[0] as Phaser.GameObjects.Rectangle;
-      if (zone.target.kind === "input") label.setText(input.order ? "입력기\n📜" : "입력기");
+
+      if (zone.target.kind === "input") {
+        body.setTexture("station-input");
+        label.setText(input.order ? "입력기 · 📜" : "입력기");
+      }
       if (zone.target.kind === "slot") {
         const moduleId = slots[zone.target.index];
-        const icon = moduleId ? modulesById.get(moduleId)?.iconKey ?? "?" : "·";
-        label.setText(`슬롯${zone.target.index + 1}\n${icon}`);
+        const spriteKey = moduleId ? MODULE_SPRITE[moduleId] : undefined;
+        body.setTexture(spriteKey ?? "station-slot");
+        label.setText(moduleId ? (modulesById.get(moduleId)?.displayName ?? moduleId) : `슬롯${zone.target.index + 1}`);
       }
-      if (zone.target.kind === "produce") label.setText(producing ? `생산중\n${progress}%` : "생산 ▶");
-      if (zone.target.kind === "output") label.setText(output.product ? "출구\n🖼️" : "출구");
+      if (zone.target.kind === "produce") {
+        body.setTexture("station-produce");
+        label.setText(producing ? `생산 ${progress}%` : "생산");
+      }
+      if (zone.target.kind === "output") {
+        body.setTexture("station-output");
+        label.setText(output.product ? "출구 · 🖼️" : "출구");
+      }
       if (zone.target.kind === "shelf") {
         const unlocked = this.session.getShelfModuleIds().includes(zone.target.moduleId);
-        body.setAlpha(unlocked ? 1 : 0.35);
+        const spriteKey = MODULE_SPRITE[zone.target.moduleId] ?? "module-locked";
+        body.setTexture(unlocked ? spriteKey : "module-locked");
+        body.setAlpha(unlocked ? 1 : 0.55);
         const def = modulesById.get(zone.target.moduleId);
-        label.setText(unlocked ? `${def?.iconKey ?? ""}\n${def?.displayName ?? ""}` : "잠김");
+        label.setText(unlocked ? (def?.displayName ?? zone.target.moduleId) : "잠김");
       }
     }
   }
@@ -393,33 +471,33 @@ export class KitchenScene extends Phaser.Scene {
       const x = 280 + index * 180;
       const y = 78;
       if (!view) {
-        const body = this.add.rectangle(0, 8, 48, 56, 0x34a576).setStrokeStyle(2, 0xffffff, 0.7);
-        const face = this.add.text(0, 0, "🧑", { fontSize: "22px" }).setOrigin(0.5);
+        const sprite = this.add.image(0, 10, "customer").setScale(2.4).setOrigin(0.5, 0.85);
         const promptBubble = this.createPromptBubble(customer.prompt);
-        const barBg = this.add.rectangle(0, 42, 50, 6, 0x0a1d30);
-        const bar = this.add.rectangle(-25, 42, 50, 6, 0xf7d047).setOrigin(0, 0.5);
-        view = this.add.container(x, y, [body, face, promptBubble, barBg, bar]);
+        const barBg = this.add.rectangle(0, 28, 50, 6, 0x2a1c12, 0.9);
+        const bar = this.add.rectangle(-25, 28, 50, 6, 0xf0c060).setOrigin(0, 0.5);
+        view = this.add.container(x, y, [sprite, promptBubble, barBg, bar]);
+        view.setDepth(3);
         this.customerViews.set(customer.id, view);
       } else {
         view.setPosition(x, y);
       }
-      const promptBubble = view.list[2] as Phaser.GameObjects.Container;
+      const promptBubble = view.list[1] as Phaser.GameObjects.Container;
       this.updatePromptBubble(promptBubble, customer.prompt, !customer.orderTaken);
-      const bar = view.list[4] as Phaser.GameObjects.Rectangle;
+      const bar = view.list[3] as Phaser.GameObjects.Rectangle;
       const ratio = customer.patience / customer.maxPatience;
       bar.setSize(Math.max(2, 50 * ratio), 6);
-      bar.setFillStyle(ratio < 0.3 ? 0xff6b6b : 0xf7d047);
+      bar.setFillStyle(ratio < 0.3 ? 0xff6b6b : 0xf0c060);
     });
   }
 
   private createPromptBubble(prompt: string): Phaser.GameObjects.Container {
-    const bg = this.add.rectangle(0, 0, 120, 18, 0x0d2740, 0.92).setStrokeStyle(1, 0x8ec6df, 0.95);
+    const bg = this.add.rectangle(0, 0, 120, 18, 0x3a2a1a, 0.92).setStrokeStyle(1, 0xd7b48a, 0.95);
     const text = this.add.text(0, 0, "", {
       fontFamily: "IBM Plex Sans KR, Pretendard, sans-serif",
       fontSize: "11px",
-      color: "#eaf8ff",
+      color: "#fff8f0",
     }).setOrigin(0.5);
-    const bubble = this.add.container(0, -36, [bg, text]);
+    const bubble = this.add.container(0, -42, [bg, text]);
     this.updatePromptBubble(bubble, prompt, true);
     return bubble;
   }
@@ -444,7 +522,7 @@ export class KitchenScene extends Phaser.Scene {
       let view = this.floorViews.get(item.id);
       const glyph = carryGlyph(item.item);
       if (!view) {
-        const shadow = this.add.ellipse(0, 10, 28, 12, 0x061525, 0.45);
+        const shadow = this.add.image(0, 10, "drop-shadow").setScale(2).setAlpha(0.75);
         const icon = this.add.text(0, 0, glyph, { fontSize: "18px" }).setOrigin(0.5);
         view = this.add.container(item.x, item.y, [shadow, icon]);
         view.setDepth(1);
@@ -471,15 +549,11 @@ export class KitchenScene extends Phaser.Scene {
   }
 
   private drawFloor(): void {
-    this.floor.clear();
-    this.floor.fillStyle(0x0d2740, 1);
-    this.floor.fillRect(0, 0, MAP_W, MAP_H);
-    this.floor.lineStyle(1, 0x1d4560, 0.55);
-    for (let x = 0; x < MAP_W; x += 32) this.floor.lineBetween(x, 0, x, MAP_H);
-    for (let y = 0; y < MAP_H; y += 32) this.floor.lineBetween(0, y, MAP_W, y);
-    // production line path
-    this.floor.fillStyle(0x143552, 1);
-    this.floor.fillRoundedRect(160, 230, 680, 80, 12);
+    this.add.tileSprite(0, 0, MAP_W, MAP_H, "floor-tile").setOrigin(0, 0).setDepth(-20);
+    this.add.tileSprite(0, 0, MAP_W, 64, "wall-boxes").setOrigin(0, 0).setDepth(-19);
+    this.add.tileSprite(MAP_W / 2, 56, 840, 36, "counter").setOrigin(0.5).setDepth(-18);
+    this.add.tileSprite(MAP_W / 2, 270, 700, 56, "conveyor").setOrigin(0.5).setDepth(-17);
+    this.add.tileSprite(MAP_W / 2, 470, 860, 40, "counter").setOrigin(0.5).setDepth(-18);
   }
 }
 
