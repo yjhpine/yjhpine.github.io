@@ -1,0 +1,24 @@
+제목: 8월7일 애스프라이트 MCP 환경 구성
+
+작업 내용:
+1. Cursor Cloud Agent용 `.cursor/environment.json` 추가
+   - install: LibreSprite CLI 래퍼 설치 + npm ci + typecheck/test
+   - terminals: Vite 개발 서버(5173)
+2. `.cursor/mcp.json`에 `@iborymagic/aseprite-mcp` stdio 서버 등록
+3. `scripts/setup-aseprite-cli.sh` 추가
+   - LibreSprite AppImage 추출 후 `~/.local/bin/aseprite` 및 `/usr/local/bin/aseprite` 래퍼 생성
+   - 헤드리스용 SDL_VIDEODRIVER=dummy / XDG_RUNTIME_DIR 기본값 설정
+4. `AGENTS.md`에 Cloud/MCP 사용 안내 추가
+5. Draft environment build 트리거 및 INSTALL_FAILED 수정 후 재빌드
+
+검증:
+- npm ci / typecheck / test / build 통과
+- 헤드리스에서 `aseprite --version`, PNG→.ase export 통과
+- MCP 패키지 resolve 경로: /usr/local/bin/aseprite
+
+참고:
+- Cloud Agents 대시보드 MCP 드롭다운에도 동일 stdio 서버를 추가해야 Cloud Agent에서 도구가 노출됨
+- LibreSprite는 Aseprite CLI 호환 대체이며, Lua --script는 제한적(CLI export 권장)
+- Draft build ID(초기 실패): bld-20260807-5a0e30ee-78fe-4692-9b34-f9240e4a9797
+- Draft build ID(성공): bld-20260807-139d6bde-c1aa-4522-8443-5777555e545a
+- Environment ID: a17cd9ce-91f7-11f1-ba66-0e7d0216e441
