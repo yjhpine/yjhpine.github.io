@@ -109,9 +109,6 @@ export class KitchenScene extends Phaser.Scene {
     this.load.image("wall-rim", `${ART}/environment/wall_rim.png`);
     this.load.image("counter-desk", `${ART}/environment/counter_desk.png`);
     this.load.image("conveyor-belt", `${ART}/environment/conveyor_belt.png`);
-    this.load.image("decor-pipe", `${ART}/environment/decor_pipe.png`);
-    this.load.image("decor-crate", `${ART}/environment/decor_crate.png`);
-    this.load.image("decor-sticker", `${ART}/environment/decor_sticker.png`);
 
     this.load.image("station-input", `${ART}/stations/station_input.png`);
     this.load.image("station-input-filled", `${ART}/stations/station_input_filled.png`);
@@ -189,7 +186,6 @@ export class KitchenScene extends Phaser.Scene {
     const pixelKeys = [
       "cat-idle", "cat-walk", "cat-handle-idle", "cat-handle-walk",
       "floor-tile", "floor-dash", "floor-flow", "wall-rim", "counter-desk", "conveyor-belt",
-      "decor-pipe", "decor-crate", "decor-sticker",
       "station-input", "station-input-filled", "station-slot",
       "station-produce-idle", "station-produce-busy", "station-produce-done",
       "station-output-empty", "station-output-ready", "station-module-shelf",
@@ -1123,11 +1119,6 @@ export class KitchenScene extends Phaser.Scene {
     }
     this.add.image(560, 392, "floor-flow").setScale(1.5).setAlpha(0.45).setDepth(-16.5);
     this.add.image(MAP_W / 2, 240, "floor-dash").setScale(1.3).setAlpha(0.25).setAngle(90).setDepth(-16.5);
-
-    this.add.image(48, 200, "decor-pipe").setScale(2).setDepth(-16);
-    this.add.image(670, 200, "decor-crate").setScale(2).setDepth(-16);
-    this.add.image(48, 480, "decor-sticker").setScale(2).setDepth(-16);
-    this.add.image(672, 480, "decor-pipe").setScale(2).setDepth(-16);
   }
 }
 

@@ -1,0 +1,3 @@
+제목: 8월7일 바닥 장식 오브젝트 제거
+
+- decor_pipe / decor_crate / decor_sticker 월드 배치 및 preload 제거
