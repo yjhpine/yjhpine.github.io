@@ -1,0 +1,38 @@
+{
+  "frames": [
+    {
+      "filename": "customer_hamster_idle_0.png",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 40
+      },
+      "duration": 400
+    },
+    {
+      "filename": "customer_hamster_idle_1.png",
+      "frame": {
+        "x": 32,
+        "y": 0,
+        "w": 32,
+        "h": 40
+      },
+      "duration": 400
+    }
+  ],
+  "meta": {
+    "app": "aseprite-mcp-pipeline",
+    "size": {
+      "w": 64,
+      "h": 40
+    },
+    "frameTags": [
+      {
+        "name": "play",
+        "from": 0,
+        "to": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+제목: 8월7일 Aseprite MCP 연출 강화
+
+참고: Cursor CallMcpTool에는 aseprite-mcp가 노출되지 않아
+@iborymagic/aseprite-mcp 핸들러를 scripts/export-with-aseprite-mcp.mjs로 직접 호출했다.
+
+작업:
+1. scripts/polish-toy-art-with-aseprite.py — 스테이션/칩 디테일 강화, 손님 idle 2프레임, spark/벨 시트
+2. scripts/export-with-aseprite-mcp.mjs — aseprite_check_environment / png→ase / export_metadata
+3. KitchenScene — customer idle anim, produce spark sheet, counter bell ring on Z customer interact
+4. public/assets/aseprite/** .ase + json 아카이브
+
+검증: typecheck / test(22) / build 통과. Cat_* 미변경.

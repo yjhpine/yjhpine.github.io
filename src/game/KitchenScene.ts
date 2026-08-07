@@ -51,12 +51,7 @@ const MODULE_SPRITE: Record<string, string> = {
   "quality-checker": "module-quality-checker",
 };
 
-const CUSTOMER_SPRITES = [
-  "customer-rabbit",
-  "customer-dog",
-  "customer-hamster",
-  "customer-duck",
-] as const;
+const CUSTOMER_KINDS = ["rabbit", "dog", "hamster", "duck"] as const;
 
 export class KitchenScene extends Phaser.Scene {
   readonly eventBus = new GameEventBus<SceneEvents>();
@@ -75,7 +70,8 @@ export class KitchenScene extends Phaser.Scene {
   private floorViews = new Map<string, Phaser.GameObjects.Container>();
   private highlight?: Phaser.GameObjects.Image;
   private interactHint?: Phaser.GameObjects.Image;
-  private produceSpark?: Phaser.GameObjects.Image;
+  private produceSpark?: Phaser.GameObjects.Sprite;
+  private counterBell?: Phaser.GameObjects.Sprite;
   private interactReady = true;
   private facingX = 0;
   private facingY = -1;
@@ -123,15 +119,25 @@ export class KitchenScene extends Phaser.Scene {
       this.load.image(key, `${ART}/modules/module_${file}.png`);
     }
 
-    for (const key of CUSTOMER_SPRITES) {
-      this.load.image(key, `${ART}/customers/${key.replace(/-/g, "_")}.png`);
+    for (const kind of CUSTOMER_KINDS) {
+      this.load.spritesheet(`customer-${kind}-idle`, `${ART}/customers/customer_${kind}_idle.png`, {
+        frameWidth: 32,
+        frameHeight: 40,
+      });
     }
 
     this.load.image("prompt-bubble", `${ART}/ui/prompt_bubble.png`);
     this.load.image("patience-frame", `${ART}/ui/patience_frame.png`);
     this.load.image("interact-hint", `${ART}/ui/interact_hint.png`);
     this.load.image("highlight-frame", `${ART}/ui/highlight_frame.png`);
-    this.load.image("produce-spark", `${ART}/effects/produce_spark.png`);
+    this.load.spritesheet("produce-spark", `${ART}/effects/produce_spark_sheet.png`, {
+      frameWidth: 16,
+      frameHeight: 16,
+    });
+    this.load.spritesheet("counter-bell", `${ART}/effects/counter_bell_sheet.png`, {
+      frameWidth: 16,
+      frameHeight: 16,
+    });
   }
 
   create(): void {
@@ -146,13 +152,15 @@ export class KitchenScene extends Phaser.Scene {
       "station-output-empty", "station-output-ready", "station-module-shelf",
       "item-order", "item-product", "item-shadow", "module-locked",
       ...Object.values(MODULE_SPRITE),
-      ...CUSTOMER_SPRITES,
-      "prompt-bubble", "patience-frame", "interact-hint", "highlight-frame", "produce-spark",
+      ...CUSTOMER_KINDS.map((kind) => `customer-${kind}-idle`),
+      "prompt-bubble", "patience-frame", "interact-hint", "highlight-frame",
+      "produce-spark", "counter-bell",
     ];
     this.setNearestFilter(pixelKeys);
     this.drawFloor();
     this.buildStations();
     this.createPlayerAnimations();
+    this.createWorldAnimations();
     this.playerSprite = this.add.sprite(0, 0, "cat-idle", 0).setOrigin(0.5, 0.7);
     this.playerSprite.setScale(PLAYER_SCALE);
     this.playerSprite.setFlipX(false);
@@ -162,7 +170,8 @@ export class KitchenScene extends Phaser.Scene {
     this.playPlayerAnim("player-idle");
     this.highlight = this.add.image(0, 0, "highlight-frame").setScale(2.4).setVisible(false).setDepth(6);
     this.interactHint = this.add.image(0, 0, "interact-hint").setScale(1.6).setVisible(false).setDepth(7);
-    this.produceSpark = this.add.image(520, 320, "produce-spark").setScale(2).setVisible(false).setDepth(4);
+    this.produceSpark = this.add.sprite(520, 318, "produce-spark", 0).setScale(2).setVisible(false).setDepth(4);
+    this.counterBell = this.add.sprite(560, 78, "counter-bell", 0).setScale(2).setDepth(2);
 
     const keyboard = this.input.keyboard!;
     this.cursors = keyboard.createCursorKeys();
@@ -216,6 +225,48 @@ export class KitchenScene extends Phaser.Scene {
     this.anims.create({ key: "player-walk", frames: this.anims.generateFrameNumbers("cat-walk", { start: 0, end: 1 }), frameRate: 8, repeat: -1 });
     this.anims.create({ key: "player-handle-idle", frames: this.anims.generateFrameNumbers("cat-handle-idle", { start: 0, end: 3 }), frameRate: 6, repeat: -1 });
     this.anims.create({ key: "player-handle-walk", frames: this.anims.generateFrameNumbers("cat-handle-walk", { start: 0, end: 1 }), frameRate: 8, repeat: -1 });
+  }
+
+  private createWorldAnimations(): void {
+    if (!this.anims.exists("produce-spark-play")) {
+      this.anims.create({
+        key: "produce-spark-play",
+        frames: this.anims.generateFrameNumbers("produce-spark", { start: 0, end: 3 }),
+        frameRate: 10,
+        repeat: -1,
+      });
+    }
+    if (!this.anims.exists("counter-bell-ring")) {
+      this.anims.create({
+        key: "counter-bell-ring",
+        frames: this.anims.generateFrameNumbers("counter-bell", { start: 0, end: 3 }),
+        frameRate: 12,
+        repeat: 2,
+      });
+    }
+    for (const kind of CUSTOMER_KINDS) {
+      const key = `customer-${kind}-idle-anim`;
+      if (this.anims.exists(key)) continue;
+      this.anims.create({
+        key,
+        frames: this.anims.generateFrameNumbers(`customer-${kind}-idle`, { start: 0, end: 1 }),
+        frameRate: 2,
+        repeat: -1,
+      });
+    }
+  }
+
+  private ringCounterBell(): void {
+    if (!this.counterBell) return;
+    this.counterBell.play("counter-bell-ring", true);
+    this.tweens.add({
+      targets: this.counterBell,
+      scaleX: 2.3,
+      scaleY: 1.7,
+      duration: 90,
+      yoyo: true,
+      repeat: 2,
+    });
   }
 
   private playPlayerAnim(key: string): void {
@@ -328,8 +379,14 @@ export class KitchenScene extends Phaser.Scene {
     switch (target.kind) {
       case "customer": {
         const carry = session.getCarry();
-        if (carry.kind === "product") return session.deliverToCustomer(target.id);
-        return session.pickUpFromCustomer(target.id);
+        if (carry.kind === "product") {
+          const result = session.deliverToCustomer(target.id);
+          if (result.delivered) this.ringCounterBell();
+          return result;
+        }
+        const result = session.pickUpFromCustomer(target.id);
+        if (result.tone !== "error") this.ringCounterBell();
+        return result;
       }
       case "input": return session.interactInput();
       case "produce": return session.startProduce();
@@ -505,19 +562,13 @@ export class KitchenScene extends Phaser.Scene {
         label.setText(producing ? `생산 ${progress}%` : "생산");
         if (this.produceSpark) {
           this.produceSpark.setVisible(producing);
-          if (producing && !this.tweens.isTweening(this.produceSpark)) {
-            this.tweens.add({
-              targets: this.produceSpark,
-              alpha: 0.35,
-              y: 312,
-              duration: 280,
-              yoyo: true,
-              repeat: -1,
-            });
-          }
-          if (!producing) {
-            this.tweens.killTweensOf(this.produceSpark);
-            this.produceSpark.setAlpha(1).setY(320);
+          if (producing) {
+            if (this.produceSpark.anims.currentAnim?.key !== "produce-spark-play") {
+              this.produceSpark.play("produce-spark-play", true);
+            }
+          } else {
+            this.produceSpark.stop();
+            this.produceSpark.setFrame(0);
           }
         }
       }
@@ -549,8 +600,9 @@ export class KitchenScene extends Phaser.Scene {
       const x = 150 + index * 140;
       const y = 110;
       if (!view) {
-        const spriteKey = CUSTOMER_SPRITES[index % CUSTOMER_SPRITES.length];
-        const sprite = this.add.image(0, 10, spriteKey).setScale(2.2).setOrigin(0.5, 0.85);
+        const kind = CUSTOMER_KINDS[index % CUSTOMER_KINDS.length];
+        const sprite = this.add.sprite(0, 10, `customer-${kind}-idle`, 0).setScale(2.2).setOrigin(0.5, 0.85);
+        sprite.play(`customer-${kind}-idle-anim`, true);
         const promptBubble = this.createPromptBubble(customer.prompt);
         const barBg = this.add.image(0, 30, "patience-frame").setScale(1);
         const bar = this.add.rectangle(-22, 30, 44, 4, 0x60ba6e).setOrigin(0, 0.5);

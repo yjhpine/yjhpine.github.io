@@ -1,0 +1,58 @@
+{
+  "frames": [
+    {
+      "filename": "produce_spark_0.png",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 16,
+        "h": 16
+      },
+      "duration": 100
+    },
+    {
+      "filename": "produce_spark_1.png",
+      "frame": {
+        "x": 16,
+        "y": 0,
+        "w": 16,
+        "h": 16
+      },
+      "duration": 100
+    },
+    {
+      "filename": "produce_spark_2.png",
+      "frame": {
+        "x": 32,
+        "y": 0,
+        "w": 16,
+        "h": 16
+      },
+      "duration": 100
+    },
+    {
+      "filename": "produce_spark_3.png",
+      "frame": {
+        "x": 48,
+        "y": 0,
+        "w": 16,
+        "h": 16
+      },
+      "duration": 100
+    }
+  ],
+  "meta": {
+    "app": "aseprite-mcp-pipeline",
+    "size": {
+      "w": 64,
+      "h": 16
+    },
+    "frameTags": [
+      {
+        "name": "play",
+        "from": 0,
+        "to": 3
+      }
+    ]
+  }
+}

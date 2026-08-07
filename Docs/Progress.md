@@ -47,3 +47,9 @@
 ## 2026-07-29
 
 - Phaser 3, TypeScript, Vite, Vitest 기반의 첫 MVP(그래프형)를 구성했다.
+
+## 2026-08-07 (aseprite polish)
+
+- Aseprite MCP(`@iborymagic/aseprite-mcp`) + LibreSprite CLI로 스테이션/칩 .ase 아카이브·메타데이터 생성.
+- 손님 2프레임 idle, 생산 spark 4프레임, 카운터 벨 링 시트를 Phaser에 연결.
+- 플레이어 Cat_* 미수정.
