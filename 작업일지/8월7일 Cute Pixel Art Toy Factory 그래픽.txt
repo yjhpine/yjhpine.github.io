@@ -1,0 +1,10 @@
+제목: 8월7일 Cute Pixel Art Toy Factory 그래픽
+
+변경 요약
+- public/assets/art 아래에 environment/stations/items/modules/customers/ui/effects 픽셀 에셋 추가
+- scripts/generate-toy-factory-art.py 로 재생성 가능
+- KitchenScene: 바닥·스테이션 상태·아이템·손님(비고양이)·하이라이트 적용
+- UIController/CSS: 장난감 제어판 스킨, 모듈 아이콘 PNG
+- 구 public/assets/factory placeholder 및 Box_Floor 제거
+- 플레이어 Cat_* 스프라이트/애님/스케일은 수정하지 않음
+- 스테이션 좌표·충돌·게임 규칙은 유지

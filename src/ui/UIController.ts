@@ -102,7 +102,7 @@ export class UIController {
     this.byId("order-step").textContent = `${rounds.findIndex((item) => item.id === round.id) + 1} / ${rounds.length}`;
     this.byId("shelf-guide").innerHTML = round.availableModuleIds.map((moduleId) => {
       const definition = modulesById.get(moduleId)!;
-      return `<li><span>${definition.iconKey}</span><b>${definition.displayName}</b><small>VRAM ${definition.vramCost} · ${definition.description}</small></li>`;
+      return `<li><img class="chip-icon" src="${definition.iconKey}" alt="" width="28" height="28" /><b>${definition.displayName}</b><small>VRAM ${definition.vramCost} · ${definition.description}</small></li>`;
     }).join("");
   }
 
@@ -129,7 +129,7 @@ export class UIController {
       const definition = modulesById.get(moduleId);
       if (!definition) return "";
       return `<article class="unlock-item">
-        <span class="unlock-item-icon" aria-hidden="true">${definition.iconKey}</span>
+        <img class="unlock-item-icon" src="${definition.iconKey}" alt="" width="40" height="40" aria-hidden="true" />
         <div>
           <b>${escapeHtml(definition.displayName)}</b>
           <p>${escapeHtml(definition.unlockTutorial)}</p>
@@ -293,9 +293,9 @@ export class UIController {
 
 function carryLabel(carry: CarryItem): string {
   if (carry.kind === "none") return "손: 비움";
-  if (carry.kind === "order") return "손: 주문서 📜 (X)";
+  if (carry.kind === "order") return "손: 주문서 (X)";
   if (carry.kind === "moduleChip") return `손: ${modulesById.get(carry.moduleId)?.displayName ?? "칩"}`;
-  return "손: 이미지 🖼️ (X)";
+  return "손: 폴라로이드 (X)";
 }
 
 function escapeHtml(value: string): string {

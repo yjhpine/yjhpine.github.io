@@ -1,5 +1,11 @@
 # Progress
 
+## 2026-08-07
+
+- Cute Pixel Art Toy Factory 그래픽 패스: `public/assets/art/**` 신규 에셋, KitchenScene/UI 적용.
+- 사진형 Box_Floor·구 factory placeholder 제거. 플레이어 Cat_*는 미수정.
+- 모듈 iconKey를 PNG 경로로 교체, DOM HUD를 골판지/스티커 톤으로 스킨.
+
 ## 2026-08-06
 
 - 게임 화면을 720×720(1:1)로 맞추고 `Box_Floor`를 상자 내부만 남기도록 크롭해 검정 여백이 보이지 않게 했다.

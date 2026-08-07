@@ -40,7 +40,7 @@ const MAP_W = 720;
 const MAP_H = 720;
 const PLAYER_SCALE = 3;
 const PLAYER_FRAME = 32;
-const FACTORY = "/assets/factory";
+const ART = "/assets/art";
 
 const MODULE_SPRITE: Record<string, string> = {
   "image-maker": "module-image-maker",
@@ -51,12 +51,19 @@ const MODULE_SPRITE: Record<string, string> = {
   "quality-checker": "module-quality-checker",
 };
 
+const CUSTOMER_SPRITES = [
+  "customer-rabbit",
+  "customer-dog",
+  "customer-hamster",
+  "customer-duck",
+] as const;
+
 export class KitchenScene extends Phaser.Scene {
   readonly eventBus = new GameEventBus<SceneEvents>();
   private session: KitchenSession | undefined;
   private player!: Phaser.GameObjects.Container;
   private playerSprite!: Phaser.GameObjects.Sprite;
-  private carryIcon!: Phaser.GameObjects.Text;
+  private carryIcon!: Phaser.GameObjects.Image;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keyW!: Phaser.Input.Keyboard.Key;
   private keyA!: Phaser.Input.Keyboard.Key;
@@ -66,7 +73,9 @@ export class KitchenScene extends Phaser.Scene {
   private zoneViews = new Map<string, Phaser.GameObjects.Container>();
   private customerViews = new Map<string, Phaser.GameObjects.Container>();
   private floorViews = new Map<string, Phaser.GameObjects.Container>();
-  private highlight?: Phaser.GameObjects.Rectangle;
+  private highlight?: Phaser.GameObjects.Image;
+  private interactHint?: Phaser.GameObjects.Image;
+  private produceSpark?: Phaser.GameObjects.Image;
   private interactReady = true;
   private facingX = 0;
   private facingY = -1;
@@ -86,46 +95,74 @@ export class KitchenScene extends Phaser.Scene {
     this.load.spritesheet("cat-handle-idle", `${player}/Cat_Handle_Idle.png`, { frameWidth: PLAYER_FRAME, frameHeight: PLAYER_FRAME });
     this.load.spritesheet("cat-handle-walk", `${player}/Cat_Handle_Walk.png`, { frameWidth: PLAYER_FRAME, frameHeight: PLAYER_FRAME });
 
-    this.load.image("box-floor", `${FACTORY}/Box_Floor.png`);
-    this.load.image("conveyor", `${FACTORY}/conveyor.png`);
-    this.load.image("counter", `${FACTORY}/counter.png`);
-    this.load.image("station-input", `${FACTORY}/station-input.png`);
-    this.load.image("station-slot", `${FACTORY}/station-slot.png`);
-    this.load.image("station-produce", `${FACTORY}/station-produce.png`);
-    this.load.image("station-output", `${FACTORY}/station-output.png`);
-    this.load.image("customer", `${FACTORY}/customer.png`);
-    this.load.image("module-locked", `${FACTORY}/module-locked.png`);
-    this.load.image("drop-shadow", `${FACTORY}/drop-shadow.png`);
+    this.load.image("floor-tile", `${ART}/environment/floor_tile.png`);
+    this.load.image("wall-rim", `${ART}/environment/wall_rim.png`);
+    this.load.image("counter-desk", `${ART}/environment/counter_desk.png`);
+    this.load.image("conveyor-belt", `${ART}/environment/conveyor_belt.png`);
+    this.load.image("decor-pipe", `${ART}/environment/decor_pipe.png`);
+    this.load.image("decor-crate", `${ART}/environment/decor_crate.png`);
+    this.load.image("decor-sticker", `${ART}/environment/decor_sticker.png`);
+
+    this.load.image("station-input", `${ART}/stations/station_input.png`);
+    this.load.image("station-input-filled", `${ART}/stations/station_input_filled.png`);
+    this.load.image("station-slot", `${ART}/stations/station_slot_empty.png`);
+    this.load.image("station-produce-idle", `${ART}/stations/station_produce_idle.png`);
+    this.load.image("station-produce-busy", `${ART}/stations/station_produce_busy.png`);
+    this.load.image("station-produce-done", `${ART}/stations/station_produce_done.png`);
+    this.load.image("station-output-empty", `${ART}/stations/station_output_empty.png`);
+    this.load.image("station-output-ready", `${ART}/stations/station_output_ready.png`);
+    this.load.image("station-module-shelf", `${ART}/stations/station_module_shelf.png`);
+
+    this.load.image("item-order", `${ART}/items/item_order.png`);
+    this.load.image("item-product", `${ART}/items/item_product.png`);
+    this.load.image("item-shadow", `${ART}/items/item_shadow.png`);
+
+    this.load.image("module-locked", `${ART}/modules/module_locked.png`);
     for (const [moduleId, key] of Object.entries(MODULE_SPRITE)) {
-      this.load.image(key, `${FACTORY}/module-${moduleId}.png`);
+      const file = moduleId.replace(/-/g, "_");
+      this.load.image(key, `${ART}/modules/module_${file}.png`);
     }
+
+    for (const key of CUSTOMER_SPRITES) {
+      this.load.image(key, `${ART}/customers/${key.replace(/-/g, "_")}.png`);
+    }
+
+    this.load.image("prompt-bubble", `${ART}/ui/prompt_bubble.png`);
+    this.load.image("patience-frame", `${ART}/ui/patience_frame.png`);
+    this.load.image("interact-hint", `${ART}/ui/interact_hint.png`);
+    this.load.image("highlight-frame", `${ART}/ui/highlight_frame.png`);
+    this.load.image("produce-spark", `${ART}/effects/produce_spark.png`);
   }
 
   create(): void {
-    this.cameras.main.setBackgroundColor("#000000");
+    this.cameras.main.setBackgroundColor("#d6a86a");
     this.cameras.main.setBounds(0, 0, MAP_W, MAP_H);
-    this.setNearestFilter([
+    const pixelKeys = [
       "cat-idle", "cat-walk", "cat-handle-idle", "cat-handle-walk",
-      "conveyor", "counter",
-      "station-input", "station-slot", "station-produce", "station-output",
-      "customer", "module-locked", "drop-shadow",
+      "floor-tile", "wall-rim", "counter-desk", "conveyor-belt",
+      "decor-pipe", "decor-crate", "decor-sticker",
+      "station-input", "station-input-filled", "station-slot",
+      "station-produce-idle", "station-produce-busy", "station-produce-done",
+      "station-output-empty", "station-output-ready", "station-module-shelf",
+      "item-order", "item-product", "item-shadow", "module-locked",
       ...Object.values(MODULE_SPRITE),
-    ]);
-    // Box_Floor is a detailed cardboard texture — keep bilinear sampling.
-    if (this.textures.exists("box-floor")) {
-      this.textures.get("box-floor").setFilter(Phaser.Textures.FilterMode.LINEAR);
-    }
+      ...CUSTOMER_SPRITES,
+      "prompt-bubble", "patience-frame", "interact-hint", "highlight-frame", "produce-spark",
+    ];
+    this.setNearestFilter(pixelKeys);
     this.drawFloor();
     this.buildStations();
     this.createPlayerAnimations();
     this.playerSprite = this.add.sprite(0, 0, "cat-idle", 0).setOrigin(0.5, 0.7);
     this.playerSprite.setScale(PLAYER_SCALE);
     this.playerSprite.setFlipX(false);
-    this.carryIcon = this.add.text(0, -38, "", { fontSize: "16px", align: "center" }).setOrigin(0.5);
+    this.carryIcon = this.add.image(0, -36, "item-order").setScale(1.4).setVisible(false);
     this.player = this.add.container(MAP_W / 2, MAP_H * 0.62, [this.playerSprite, this.carryIcon]);
     this.player.setDepth(5);
     this.playPlayerAnim("player-idle");
-    this.highlight = this.add.rectangle(0, 0, 10, 10, 0xf0c060, 0).setStrokeStyle(2, 0xf0c060, 0.95).setVisible(false);
+    this.highlight = this.add.image(0, 0, "highlight-frame").setScale(2.4).setVisible(false).setDepth(6);
+    this.interactHint = this.add.image(0, 0, "interact-hint").setScale(1.6).setVisible(false).setDepth(7);
+    this.produceSpark = this.add.image(520, 320, "produce-spark").setScale(2).setVisible(false).setDepth(4);
 
     const keyboard = this.input.keyboard!;
     this.cursors = keyboard.createCursorKeys();
@@ -339,28 +376,33 @@ export class KitchenScene extends Phaser.Scene {
   private updateHighlight(): void {
     const carry = this.session?.getCarry();
     const target = this.nearestTarget({ includeFloor: !carry || carry.kind === "none" });
-    if (!target || !this.highlight) { this.highlight?.setVisible(false); return; }
-    let x = 0; let y = 0; let w = 40; let h = 40;
+    if (!target || !this.highlight || !this.interactHint) {
+      this.highlight?.setVisible(false);
+      this.interactHint?.setVisible(false);
+      return;
+    }
+    let x = 0; let y = 0; let scale = 2.4;
     if (target.kind === "customer") {
       const view = this.customerViews.get(target.id);
-      if (!view) { this.highlight.setVisible(false); return; }
-      x = view.x; y = view.y - 8; w = 64; h = 86;
+      if (!view) { this.highlight.setVisible(false); this.interactHint.setVisible(false); return; }
+      x = view.x; y = view.y - 8; scale = 2.8;
     } else if (target.kind === "floor") {
       const item = this.session?.getFloorItems().find((entry) => entry.id === target.id);
-      if (!item) { this.highlight.setVisible(false); return; }
-      x = item.x; y = item.y; w = 36; h = 36;
+      if (!item) { this.highlight.setVisible(false); this.interactHint.setVisible(false); return; }
+      x = item.x; y = item.y; scale = 1.6;
     } else {
       const zone = this.zones.find((item) => JSON.stringify(item.target) === JSON.stringify(target));
-      if (!zone) { this.highlight.setVisible(false); return; }
-      x = zone.x; y = zone.y; w = zone.w + 8; h = zone.h + 8;
+      if (!zone) { this.highlight.setVisible(false); this.interactHint.setVisible(false); return; }
+      x = zone.x; y = zone.y; scale = zone.target.kind === "shelf" ? 2.2 : 2.6;
     }
-    this.highlight.setPosition(x, y).setSize(w, h).setVisible(true);
+    this.highlight.setPosition(x, y).setScale(scale).setVisible(true);
+    this.interactHint.setPosition(x, y - 42).setVisible(true);
   }
 
   private stationTexture(target: InteractTarget): string {
     if (target.kind === "input") return "station-input";
-    if (target.kind === "produce") return "station-produce";
-    if (target.kind === "output") return "station-output";
+    if (target.kind === "produce") return "station-produce-idle";
+    if (target.kind === "output") return "station-output-empty";
     if (target.kind === "slot") return "station-slot";
     if (target.kind === "shelf") return "module-locked";
     return "station-slot";
@@ -391,32 +433,47 @@ export class KitchenScene extends Phaser.Scene {
 
     for (const zone of this.zones) {
       const key = JSON.stringify(zone.target);
-      const scale = zone.target.kind === "shelf" ? 2.2 : 2;
-      const body = this.add.image(0, -4, this.stationTexture(zone.target)).setScale(scale);
+      const isShelf = zone.target.kind === "shelf";
+      const scale = isShelf ? 2.1 : 2;
+      const children: Phaser.GameObjects.GameObject[] = [];
+      if (isShelf) {
+        const shelf = this.add.image(0, 6, "station-module-shelf").setScale(2);
+        children.push(shelf);
+      }
+      const body = this.add.image(0, isShelf ? -8 : -4, this.stationTexture(zone.target)).setScale(scale);
       const text = this.add
-        .text(0, zone.target.kind === "shelf" ? 34 : 38, zone.label, {
+        .text(0, isShelf ? 36 : 40, zone.label, {
           fontSize: "11px",
-          color: "#fff8f0",
+          color: "#3e2a18",
           align: "center",
-          backgroundColor: "#3a2a1acc",
+          backgroundColor: "#ffe9c4ee",
           padding: { x: 4, y: 2 },
           wordWrap: { width: zone.w + 8 },
         })
         .setOrigin(0.5);
-      const container = this.add.container(zone.x, zone.y, [body, text]);
+      children.push(body, text);
+      const container = this.add.container(zone.x, zone.y, children);
       container.setDepth(1);
       this.zoneViews.set(key, container);
     }
 
     this.add
-      .text(MAP_W / 2, 28, "손님 카운터", {
+      .text(MAP_W / 2, 24, "손님 카운터", {
         fontSize: "13px",
-        color: "#fff8f0",
-        backgroundColor: "#3a2a1acc",
+        color: "#3e2a18",
+        backgroundColor: "#ffe9c4ee",
         padding: { x: 8, y: 3 },
       })
       .setOrigin(0.5)
       .setDepth(2);
+  }
+
+  private bodyIndex(target: InteractTarget): number {
+    return target.kind === "shelf" ? 1 : 0;
+  }
+
+  private labelIndex(target: InteractTarget): number {
+    return target.kind === "shelf" ? 2 : 1;
   }
 
   private refreshStationLabels(): void {
@@ -430,12 +487,12 @@ export class KitchenScene extends Phaser.Scene {
     for (const zone of this.zones) {
       const view = this.zoneViews.get(JSON.stringify(zone.target));
       if (!view) continue;
-      const body = view.list[0] as Phaser.GameObjects.Image;
-      const label = view.list[1] as Phaser.GameObjects.Text;
+      const body = view.list[this.bodyIndex(zone.target)] as Phaser.GameObjects.Image;
+      const label = view.list[this.labelIndex(zone.target)] as Phaser.GameObjects.Text;
 
       if (zone.target.kind === "input") {
-        body.setTexture("station-input");
-        label.setText(input.order ? "입력기 · 📜" : "입력기");
+        body.setTexture(input.order ? "station-input-filled" : "station-input");
+        label.setText("입력기");
       }
       if (zone.target.kind === "slot") {
         const moduleId = slots[zone.target.index];
@@ -444,12 +501,30 @@ export class KitchenScene extends Phaser.Scene {
         label.setText(moduleId ? (modulesById.get(moduleId)?.displayName ?? moduleId) : `슬롯${zone.target.index + 1}`);
       }
       if (zone.target.kind === "produce") {
-        body.setTexture("station-produce");
+        body.setTexture(producing ? "station-produce-busy" : "station-produce-idle");
         label.setText(producing ? `생산 ${progress}%` : "생산");
+        if (this.produceSpark) {
+          this.produceSpark.setVisible(producing);
+          if (producing && !this.tweens.isTweening(this.produceSpark)) {
+            this.tweens.add({
+              targets: this.produceSpark,
+              alpha: 0.35,
+              y: 312,
+              duration: 280,
+              yoyo: true,
+              repeat: -1,
+            });
+          }
+          if (!producing) {
+            this.tweens.killTweensOf(this.produceSpark);
+            this.produceSpark.setAlpha(1).setY(320);
+          }
+        }
       }
       if (zone.target.kind === "output") {
-        body.setTexture("station-output");
-        label.setText(output.product ? "출구 · 🖼️" : "출구");
+        const ready = !!output.product;
+        body.setTexture(ready ? "station-output-ready" : "station-output-empty");
+        label.setText("출구");
       }
       if (zone.target.kind === "shelf") {
         const unlocked = this.session.getShelfModuleIds().includes(zone.target.moduleId);
@@ -474,10 +549,11 @@ export class KitchenScene extends Phaser.Scene {
       const x = 150 + index * 140;
       const y = 110;
       if (!view) {
-        const sprite = this.add.image(0, 10, "customer").setScale(2.4).setOrigin(0.5, 0.85);
+        const spriteKey = CUSTOMER_SPRITES[index % CUSTOMER_SPRITES.length];
+        const sprite = this.add.image(0, 10, spriteKey).setScale(2.2).setOrigin(0.5, 0.85);
         const promptBubble = this.createPromptBubble(customer.prompt);
-        const barBg = this.add.rectangle(0, 28, 50, 6, 0x2a1c12, 0.9);
-        const bar = this.add.rectangle(-25, 28, 50, 6, 0xf0c060).setOrigin(0, 0.5);
+        const barBg = this.add.image(0, 30, "patience-frame").setScale(1);
+        const bar = this.add.rectangle(-22, 30, 44, 4, 0x60ba6e).setOrigin(0, 0.5);
         view = this.add.container(x, y, [sprite, promptBubble, barBg, bar]);
         view.setDepth(3);
         this.customerViews.set(customer.id, view);
@@ -488,29 +564,29 @@ export class KitchenScene extends Phaser.Scene {
       this.updatePromptBubble(promptBubble, customer.prompt, !customer.orderTaken);
       const bar = view.list[3] as Phaser.GameObjects.Rectangle;
       const ratio = customer.patience / customer.maxPatience;
-      bar.setSize(Math.max(2, 50 * ratio), 6);
-      bar.setFillStyle(ratio < 0.3 ? 0xff6b6b : 0xf0c060);
+      bar.setSize(Math.max(2, 44 * ratio), 4);
+      bar.setFillStyle(ratio < 0.3 ? 0xdc5454 : 0x60ba6e);
     });
   }
 
   private createPromptBubble(prompt: string): Phaser.GameObjects.Container {
-    const bg = this.add.rectangle(0, 0, 120, 18, 0x3a2a1a, 0.92).setStrokeStyle(1, 0xd7b48a, 0.95);
-    const text = this.add.text(0, 0, "", {
+    const bg = this.add.image(0, 0, "prompt-bubble").setScale(2.4, 1.2);
+    const text = this.add.text(0, -1, "", {
       fontFamily: "IBM Plex Sans KR, Pretendard, sans-serif",
-      fontSize: "11px",
-      color: "#fff8f0",
+      fontSize: "10px",
+      color: "#3e2a18",
     }).setOrigin(0.5);
-    const bubble = this.add.container(0, -42, [bg, text]);
+    const bubble = this.add.container(0, -46, [bg, text]);
     this.updatePromptBubble(bubble, prompt, true);
     return bubble;
   }
 
   private updatePromptBubble(bubble: Phaser.GameObjects.Container, prompt: string, visible: boolean): void {
-    const bg = bubble.list[0] as Phaser.GameObjects.Rectangle;
+    const bg = bubble.list[0] as Phaser.GameObjects.Image;
     const text = bubble.list[1] as Phaser.GameObjects.Text;
     text.setText(shortPrompt(prompt));
-    const width = Phaser.Math.Clamp(text.width + 14, 72, 168);
-    bg.setSize(width, 18);
+    const width = Phaser.Math.Clamp(text.width + 18, 72, 160);
+    bg.setDisplaySize(width, 22);
     bubble.setVisible(visible);
   }
 
@@ -523,10 +599,10 @@ export class KitchenScene extends Phaser.Scene {
     }
     for (const item of items) {
       let view = this.floorViews.get(item.id);
-      const glyph = carryGlyph(item.item);
+      const key = carrySpriteKey(item.item);
       if (!view) {
-        const shadow = this.add.image(0, 10, "drop-shadow").setScale(2).setAlpha(0.75);
-        const icon = this.add.text(0, 0, glyph, { fontSize: "18px" }).setOrigin(0.5);
+        const shadow = this.add.image(0, 10, "item-shadow").setScale(2).setAlpha(0.8);
+        const icon = this.add.image(0, 0, key).setScale(1.5);
         view = this.add.container(item.x, item.y, [shadow, icon]);
         view.setDepth(1);
         this.floorViews.set(item.id, view);
@@ -540,33 +616,42 @@ export class KitchenScene extends Phaser.Scene {
         });
       } else {
         view.setPosition(item.x, item.y);
-        const icon = view.list[1] as Phaser.GameObjects.Text;
-        icon.setText(glyph);
+        const icon = view.list[1] as Phaser.GameObjects.Image;
+        if (icon.texture.key !== key) icon.setTexture(key);
       }
     }
   }
 
   private syncCarryVisual(): void {
     if (!this.session) return;
-    this.carryIcon.setText(carryGlyph(this.session.getCarry()));
+    const carry = this.session.getCarry();
+    if (carry.kind === "none") {
+      this.carryIcon.setVisible(false);
+      return;
+    }
+    this.carryIcon.setTexture(carrySpriteKey(carry)).setVisible(true);
   }
 
   private drawFloor(): void {
-    this.add
-      .image(MAP_W / 2, MAP_H / 2, "box-floor")
-      .setDisplaySize(MAP_W, MAP_H)
-      .setDepth(-20);
-    this.add.tileSprite(MAP_W / 2, 90, 620, 36, "counter").setOrigin(0.5).setDepth(-18);
-    this.add.tileSprite(MAP_W / 2, 360, 620, 56, "conveyor").setOrigin(0.5).setDepth(-17);
-    this.add.tileSprite(MAP_W / 2, 620, 660, 40, "counter").setOrigin(0.5).setDepth(-18);
+    this.add.tileSprite(0, 0, MAP_W, MAP_H, "floor-tile").setOrigin(0, 0).setDepth(-20);
+    this.add.tileSprite(0, 0, MAP_W, 28, "wall-rim").setOrigin(0, 0).setDepth(-19);
+    this.add.tileSprite(0, MAP_H - 28, MAP_W, 28, "wall-rim").setOrigin(0, 0).setDepth(-19);
+    this.add.tileSprite(MAP_W / 2, 88, 620, 36, "counter-desk").setOrigin(0.5).setDepth(-18);
+    this.add.tileSprite(MAP_W / 2, 360, 620, 56, "conveyor-belt").setOrigin(0.5).setDepth(-17);
+    this.add.tileSprite(MAP_W / 2, 620, 660, 40, "counter-desk").setOrigin(0.5).setDepth(-18);
+    // decorations away from interaction lanes
+    this.add.image(48, 200, "decor-pipe").setScale(2).setDepth(-16);
+    this.add.image(670, 200, "decor-crate").setScale(2).setDepth(-16);
+    this.add.image(48, 480, "decor-sticker").setScale(2).setDepth(-16);
+    this.add.image(672, 480, "decor-pipe").setScale(2).setDepth(-16);
   }
 }
 
-function carryGlyph(carry: CarryItem): string {
-  if (carry.kind === "order") return "📜";
-  if (carry.kind === "moduleChip") return modulesById.get(carry.moduleId)?.iconKey ?? "⬡";
-  if (carry.kind === "product") return "🖼️";
-  return "";
+function carrySpriteKey(carry: CarryItem): string {
+  if (carry.kind === "order") return "item-order";
+  if (carry.kind === "product") return "item-product";
+  if (carry.kind === "moduleChip") return MODULE_SPRITE[carry.moduleId] ?? "module-locked";
+  return "item-order";
 }
 
 function shortPrompt(prompt: string, maxChars = 20): string {

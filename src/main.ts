@@ -10,7 +10,7 @@ ui.attachScene(kitchenScene);
 const game = new Phaser.Game({
   type: Phaser.CANVAS,
   parent: "game-canvas",
-  backgroundColor: "#000000",
+  backgroundColor: "#d6a86a",
   width: 720,
   height: 720,
   scene: [kitchenScene],
