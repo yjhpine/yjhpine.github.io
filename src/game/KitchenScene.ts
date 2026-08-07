@@ -206,10 +206,10 @@ export class KitchenScene extends Phaser.Scene {
     this.buildStations();
     this.createPlayerAnimations();
     this.createWorldAnimations();
-    this.playerSprite = this.add.sprite(0, 0, "cat-idle", 0).setOrigin(0.5, 0.7);
+    this.playerSprite = this.add.sprite(0, 0, "cat-idle", 0).setOrigin(0.5, 1);
     this.playerSprite.setScale(PLAYER_SCALE);
     this.playerSprite.setFlipX(false);
-    this.carryIcon = this.add.image(18, -4, "item-order").setScale(1.25).setVisible(false);
+    this.carryIcon = this.add.image(18, -28, "item-order").setScale(1.25).setVisible(false);
     this.player = this.add.container(MAP_W / 2, MAP_H * 0.62, [this.playerSprite, this.carryIcon]);
     this.player.setDepth(5);
     this.playPlayerAnim("player-idle");
@@ -1046,14 +1046,13 @@ export class KitchenScene extends Phaser.Scene {
     this.carryIcon.setTexture(carrySpriteKey(carry)).setVisible(true);
     this.carryIcon.setScale(1.25);
 
-    // Hold at hand/front of body, not above the head.
+    // Hold at hand/front of body (origin is at the feet).
     const facingSide = this.facingX !== 0 ? Math.sign(this.facingX) : (this.playerSprite.flipX ? 1 : -1);
     let x = facingSide * 18;
-    let y = -4;
+    let y = -28;
     if (Math.abs(this.facingY) > Math.abs(this.facingX)) {
-      // Vertical facing: keep slightly to the visible hand side, nudge forward/back.
       x = facingSide * 14;
-      y = this.facingY > 0 ? 6 : -12;
+      y = this.facingY > 0 ? -18 : -36;
     }
     this.carryIcon.setPosition(x, y);
 
