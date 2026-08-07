@@ -115,7 +115,17 @@ export class UIController {
     this.byId("waiting-count").textContent = `손님 ${stats.resolvedCustomers}/${stats.targetCustomers}`;
     this.byId("vram-status").textContent = `VRAM ${stats.vramUsed}/${stats.vramBudget}`;
     this.byId("vram-status").classList.toggle("is-over", over);
-    this.byId("carry-status").textContent = carryLabel(carry);
+    const carryIcon = this.byId<HTMLImageElement>("carry-icon");
+    const carryLabelEl = this.byId("carry-label");
+    const iconSrc = carryIconSrc(carry);
+    if (iconSrc) {
+      carryIcon.src = iconSrc;
+      carryIcon.classList.remove("is-hidden");
+    } else {
+      carryIcon.removeAttribute("src");
+      carryIcon.classList.add("is-hidden");
+    }
+    carryLabelEl.textContent = carryLabel(carry);
     const preview = this.session.getSlotVramPreview();
     this.byId("vram-preview").textContent = preview ? `이번 생산 ${preview}` : "이번 생산 0";
   }
@@ -293,9 +303,16 @@ export class UIController {
 
 function carryLabel(carry: CarryItem): string {
   if (carry.kind === "none") return "손: 비움";
-  if (carry.kind === "order") return "손: 주문서 (X)";
-  if (carry.kind === "moduleChip") return `손: ${modulesById.get(carry.moduleId)?.displayName ?? "칩"}`;
-  return "손: 폴라로이드 (X)";
+  if (carry.kind === "order") return "주문서 (X)";
+  if (carry.kind === "moduleChip") return modulesById.get(carry.moduleId)?.displayName ?? "칩";
+  return "폴라로이드 (X)";
+}
+
+function carryIconSrc(carry: CarryItem): string | null {
+  if (carry.kind === "order") return "/assets/art/items/item_order.png";
+  if (carry.kind === "product") return "/assets/art/items/item_product.png";
+  if (carry.kind === "moduleChip") return modulesById.get(carry.moduleId)?.iconKey ?? null;
+  return null;
 }
 
 function escapeHtml(value: string): string {
@@ -326,7 +343,10 @@ function shell(): string {
         <span id="waiting-count" class="factory-status">손님 0/3</span>
         <span id="vram-status" class="factory-status vram-status">VRAM 0/24</span>
         <span id="vram-preview" class="factory-status">이번 생산 0</span>
-        <span id="carry-status" class="factory-status">손: 비움</span>
+        <span id="carry-status" class="factory-status carry-status">
+          <img id="carry-icon" class="carry-icon is-hidden" alt="" width="22" height="22" />
+          <span id="carry-label">손: 비움</span>
+        </span>
         <button id="reset-line" class="ghost">라인 비우기</button>
         <button id="clear-save" class="ghost danger">저장 초기화</button>
         <button id="back-to-menu" class="ghost">메뉴</button>

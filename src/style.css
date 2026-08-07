@@ -69,6 +69,9 @@ h1 { font-size: clamp(2.6rem, 8vw, 5.2rem); margin: 20px 0 10px; letter-spacing:
 .topbar > div { display: flex; align-items: center; gap: 10px; }
 .top-actions { flex-wrap: wrap; justify-content: flex-end; }
 .order-step, .factory-status { color: #6a4a2e; font-size: .85rem; font-weight: 700; }
+.carry-status { display: inline-flex; align-items: center; gap: 6px; min-width: 7.5rem; }
+.carry-icon { width: 22px; height: 22px; image-rendering: pixelated; object-fit: contain; flex: 0 0 auto; }
+.carry-icon.is-hidden { display: none; }
 .credits { color: #b07a00; font-weight: 800; white-space: nowrap; }
 .vram-status.is-over { color: #dc5454; font-weight: 800; }
 .game-layout {

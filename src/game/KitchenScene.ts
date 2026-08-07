@@ -36,6 +36,7 @@ const DASH_SPEED = 780;
 const DASH_DURATION = 0.12;
 const DASH_COOLDOWN = 0.55;
 const INTERACT_RANGE = 70;
+const CUE_RANGE = 160;
 const MAP_W = 720;
 const MAP_H = 720;
 const PLAYER_SCALE = 3;
@@ -66,11 +67,17 @@ export class KitchenScene extends Phaser.Scene {
   private keyD!: Phaser.Input.Keyboard.Key;
   private zones: StationZone[] = [];
   private zoneViews = new Map<string, Phaser.GameObjects.Container>();
+  private stationLamps = new Map<string, Phaser.GameObjects.Image>();
+  private slotAvailableCues = new Map<number, Phaser.GameObjects.Image>();
   private customerViews = new Map<string, Phaser.GameObjects.Container>();
   private floorViews = new Map<string, Phaser.GameObjects.Container>();
   private highlight?: Phaser.GameObjects.Image;
+  private softGlow?: Phaser.GameObjects.Image;
   private interactHint?: Phaser.GameObjects.Image;
+  private guideArrow?: Phaser.GameObjects.Image;
   private produceSpark?: Phaser.GameObjects.Sprite;
+  private produceReadyMark?: Phaser.GameObjects.Image;
+  private outputProductPop?: Phaser.GameObjects.Image;
   private counterBell?: Phaser.GameObjects.Sprite;
   private interactReady = true;
   private facingX = 0;
@@ -81,6 +88,7 @@ export class KitchenScene extends Phaser.Scene {
   private dashDirY = -1;
   private isMoving = false;
   private currentAnimKey = "";
+  private wasProducing = false;
 
   constructor() { super("Kitchen"); }
 
@@ -95,6 +103,7 @@ export class KitchenScene extends Phaser.Scene {
     this.load.image("wall-rim", `${ART}/environment/wall_rim.png`);
     this.load.image("counter-desk", `${ART}/environment/counter_desk.png`);
     this.load.image("conveyor-belt", `${ART}/environment/conveyor_belt.png`);
+    this.load.image("floor-flow", `${ART}/environment/floor_flow.png`);
     this.load.image("decor-pipe", `${ART}/environment/decor_pipe.png`);
     this.load.image("decor-crate", `${ART}/environment/decor_crate.png`);
     this.load.image("decor-sticker", `${ART}/environment/decor_sticker.png`);
@@ -128,8 +137,27 @@ export class KitchenScene extends Phaser.Scene {
 
     this.load.image("prompt-bubble", `${ART}/ui/prompt_bubble.png`);
     this.load.image("patience-frame", `${ART}/ui/patience_frame.png`);
-    this.load.image("interact-hint", `${ART}/ui/interact_hint.png`);
+    this.load.image("interact-hint", `${ART}/ui/keycap_z.png`);
     this.load.image("highlight-frame", `${ART}/ui/highlight_frame.png`);
+    this.load.image("soft-glow", `${ART}/ui/soft_glow.png`);
+    this.load.image("guide-arrow", `${ART}/ui/guide_arrow.png`);
+    this.load.image("slot-available", `${ART}/ui/slot_available.png`);
+    this.load.image("order-icon-small", `${ART}/ui/order_icon_small.png`);
+    this.load.image("customer-sweat", `${ART}/ui/customer_sweat.png`);
+    this.load.image("status-lamp-off", `${ART}/ui/status_lamp_off.png`);
+    this.load.image("status-lamp-on", `${ART}/ui/status_lamp_on.png`);
+    this.load.image("status-lamp-ready", `${ART}/ui/status_lamp_ready.png`);
+    this.load.image("status-lamp-warn", `${ART}/ui/status_lamp_warn.png`);
+    this.load.image("status-lamp-busy", `${ART}/ui/status_lamp_busy.png`);
+
+    this.load.image("fx-pickup", `${ART}/effects/fx_pickup.png`);
+    this.load.image("fx-insert", `${ART}/effects/fx_insert.png`);
+    this.load.image("fx-complete", `${ART}/effects/fx_complete.png`);
+    this.load.image("fx-success", `${ART}/effects/fx_success.png`);
+    this.load.image("fx-error", `${ART}/effects/fx_error.png`);
+    this.load.image("fx-ready", `${ART}/effects/fx_ready.png`);
+    this.load.image("fx-sparkle", `${ART}/effects/fx_sparkle.png`);
+
     this.load.spritesheet("produce-spark", `${ART}/effects/produce_spark_sheet.png`, {
       frameWidth: 16,
       frameHeight: 16,
@@ -145,7 +173,7 @@ export class KitchenScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, MAP_W, MAP_H);
     const pixelKeys = [
       "cat-idle", "cat-walk", "cat-handle-idle", "cat-handle-walk",
-      "floor-tile", "wall-rim", "counter-desk", "conveyor-belt",
+      "floor-tile", "wall-rim", "counter-desk", "conveyor-belt", "floor-flow",
       "decor-pipe", "decor-crate", "decor-sticker",
       "station-input", "station-input-filled", "station-slot",
       "station-produce-idle", "station-produce-busy", "station-produce-done",
@@ -154,6 +182,9 @@ export class KitchenScene extends Phaser.Scene {
       ...Object.values(MODULE_SPRITE),
       ...CUSTOMER_KINDS.map((kind) => `customer-${kind}-idle`),
       "prompt-bubble", "patience-frame", "interact-hint", "highlight-frame",
+      "soft-glow", "guide-arrow", "slot-available", "order-icon-small", "customer-sweat",
+      "status-lamp-off", "status-lamp-on", "status-lamp-ready", "status-lamp-warn", "status-lamp-busy",
+      "fx-pickup", "fx-insert", "fx-complete", "fx-success", "fx-error", "fx-ready", "fx-sparkle",
       "produce-spark", "counter-bell",
     ];
     this.setNearestFilter(pixelKeys);
@@ -168,9 +199,13 @@ export class KitchenScene extends Phaser.Scene {
     this.player = this.add.container(MAP_W / 2, MAP_H * 0.62, [this.playerSprite, this.carryIcon]);
     this.player.setDepth(5);
     this.playPlayerAnim("player-idle");
+    this.softGlow = this.add.image(0, 0, "soft-glow").setScale(2.2).setVisible(false).setDepth(0.5);
     this.highlight = this.add.image(0, 0, "highlight-frame").setScale(2.4).setVisible(false).setDepth(6);
-    this.interactHint = this.add.image(0, 0, "interact-hint").setScale(1.6).setVisible(false).setDepth(7);
+    this.interactHint = this.add.image(0, 0, "interact-hint").setScale(1.5).setVisible(false).setDepth(7);
+    this.guideArrow = this.add.image(0, 0, "guide-arrow").setScale(1.8).setVisible(false).setDepth(6.5);
     this.produceSpark = this.add.sprite(520, 318, "produce-spark", 0).setScale(2).setVisible(false).setDepth(4);
+    this.produceReadyMark = this.add.image(520, 318, "fx-ready").setScale(2).setVisible(false).setDepth(4);
+    this.outputProductPop = this.add.image(640, 330, "item-product").setScale(1.8).setVisible(false).setDepth(4);
     this.counterBell = this.add.sprite(560, 78, "counter-bell", 0).setScale(2).setDepth(2);
 
     const keyboard = this.input.keyboard!;
@@ -194,6 +229,7 @@ export class KitchenScene extends Phaser.Scene {
 
   loadSession(session: KitchenSession): void {
     this.session = session;
+    this.wasProducing = false;
     this.player.setPosition(MAP_W / 2, MAP_H * 0.62);
     this.refreshStationLabels();
     this.syncCustomers();
@@ -217,6 +253,9 @@ export class KitchenScene extends Phaser.Scene {
     this.syncCarryVisual();
     this.syncPlayerAnim();
     this.updateHighlight();
+    this.updateCarryCues();
+    this.updateGuideArrow();
+    this.watchProductionTransitions();
   }
 
   private createPlayerAnimations(): void {
@@ -280,7 +319,6 @@ export class KitchenScene extends Phaser.Scene {
     const moving = this.isMoving || this.dashTimer > 0;
     if (carrying) this.playPlayerAnim(moving ? "player-handle-walk" : "player-handle-idle");
     else this.playPlayerAnim(moving ? "player-walk" : "player-idle");
-    // Right = flipped, left/idle = original sheet direction.
     this.playerSprite.setFlipX(this.facingX > 0);
   }
 
@@ -366,9 +404,12 @@ export class KitchenScene extends Phaser.Scene {
       const dropY = Phaser.Math.Clamp(this.player.y + this.facingY * 28, 100, MAP_H - 40);
       result = this.session.dropToFloor(dropX, dropY);
     } else {
+      this.spawnFx("fx-error", this.player.x, this.player.y - 24, 1.6);
+      this.shakeAt(this.player.x, this.player.y, this.player);
       this.eventBus.emit("notice", { message: "근처에 상호작용할 대상이 없습니다.", tone: "info" });
       return;
     }
+    this.playActionFeedback(result, target);
     this.handleSessionEvent(result);
     this.syncFloorItems();
     this.eventBus.emit("sessionChanged", undefined);
@@ -397,11 +438,82 @@ export class KitchenScene extends Phaser.Scene {
     }
   }
 
+  private playActionFeedback(result: KitchenActionResult, target?: InteractTarget): void {
+    const pos = this.targetWorldPos(target) ?? { x: this.player.x, y: this.player.y - 20 };
+    if (!result.ok || result.tone === "error") {
+      if (result.message) {
+        this.spawnFx("fx-error", pos.x, pos.y - 20, 1.8);
+        this.shakeTarget(target);
+      }
+      return;
+    }
+
+    if (result.delivered) {
+      this.spawnFx("fx-success", pos.x, pos.y - 28, 2.2);
+      this.spawnFx("fx-sparkle", pos.x + 10, pos.y - 40, 1.6);
+      this.floatCreditText(pos.x, pos.y - 50, `+${result.delivered.reward}C`);
+      const view = this.customerViews.get(result.delivered.customerId);
+      if (view) {
+        this.tweens.add({ targets: view, y: view.y - 10, duration: 120, yoyo: true, ease: "Sine.easeOut" });
+      }
+      return;
+    }
+
+    const message = result.message ?? "";
+    if (message.includes("집어") || message.includes("집었") || message.includes("완성 이미지")) {
+      this.spawnFx("fx-pickup", this.player.x, this.player.y - 28, 1.8);
+      this.tweens.add({
+        targets: this.carryIcon,
+        scaleX: 1.9,
+        scaleY: 1.9,
+        duration: 90,
+        yoyo: true,
+      });
+      return;
+    }
+    if (message.includes("입력기") || message.includes("슬롯") || message.includes("꽂") || message.includes("바꿨")) {
+      this.spawnFx("fx-insert", pos.x, pos.y - 18, 1.8);
+      this.shakeTarget(target, 4);
+      return;
+    }
+    if (message.includes("생산 시작")) {
+      this.spawnFx("fx-ready", pos.x, pos.y - 24, 1.8);
+      return;
+    }
+  }
+
   private handleSessionEvent(event: KitchenActionResult): void {
     if (event.message) this.eventBus.emit("notice", { message: event.message, tone: event.tone });
     if (event.delivered) this.eventBus.emit("delivered", event.delivered);
     if (event.leftCustomerId) this.eventBus.emit("customerLeft", event.leftCustomerId);
     if (event.roundFinished) this.eventBus.emit("roundFinished", event.roundFinished);
+  }
+
+  private watchProductionTransitions(): void {
+    if (!this.session) return;
+    const producing = this.session.isProducing();
+    const hasProduct = !!this.session.getOutput().product;
+    if (this.wasProducing && !producing && hasProduct) {
+      const out = this.zones.find((zone) => zone.target.kind === "output");
+      if (out) {
+        this.spawnFx("fx-complete", out.x, out.y - 30, 2.6);
+        this.spawnFx("fx-sparkle", out.x, out.y - 44, 2);
+        if (this.outputProductPop) {
+          this.outputProductPop.setPosition(out.x, out.y - 18).setVisible(true).setScale(1.4).setAlpha(1);
+          this.tweens.add({
+            targets: this.outputProductPop,
+            y: out.y - 28,
+            scaleX: 2,
+            scaleY: 2,
+            duration: 220,
+            yoyo: true,
+            repeat: 1,
+            ease: "Back.easeOut",
+          });
+        }
+      }
+    }
+    this.wasProducing = producing;
   }
 
   private nearestTarget(options: { includeFloor?: boolean } = {}): InteractTarget | undefined {
@@ -430,30 +542,157 @@ export class KitchenScene extends Phaser.Scene {
     return best?.target;
   }
 
+  private targetWorldPos(target?: InteractTarget): { x: number; y: number } | undefined {
+    if (!target) return undefined;
+    if (target.kind === "customer") {
+      const view = this.customerViews.get(target.id);
+      return view ? { x: view.x, y: view.y } : undefined;
+    }
+    if (target.kind === "floor") {
+      const item = this.session?.getFloorItems().find((entry) => entry.id === target.id);
+      return item ? { x: item.x, y: item.y } : undefined;
+    }
+    const zone = this.zones.find((item) => JSON.stringify(item.target) === JSON.stringify(target));
+    return zone ? { x: zone.x, y: zone.y } : undefined;
+  }
+
   private updateHighlight(): void {
     const carry = this.session?.getCarry();
     const target = this.nearestTarget({ includeFloor: !carry || carry.kind === "none" });
-    if (!target || !this.highlight || !this.interactHint) {
+    if (!target || !this.highlight || !this.interactHint || !this.softGlow) {
       this.highlight?.setVisible(false);
       this.interactHint?.setVisible(false);
+      this.softGlow?.setVisible(false);
       return;
     }
-    let x = 0; let y = 0; let scale = 2.4;
-    if (target.kind === "customer") {
-      const view = this.customerViews.get(target.id);
-      if (!view) { this.highlight.setVisible(false); this.interactHint.setVisible(false); return; }
-      x = view.x; y = view.y - 8; scale = 2.8;
-    } else if (target.kind === "floor") {
-      const item = this.session?.getFloorItems().find((entry) => entry.id === target.id);
-      if (!item) { this.highlight.setVisible(false); this.interactHint.setVisible(false); return; }
-      x = item.x; y = item.y; scale = 1.6;
-    } else {
-      const zone = this.zones.find((item) => JSON.stringify(item.target) === JSON.stringify(target));
-      if (!zone) { this.highlight.setVisible(false); this.interactHint.setVisible(false); return; }
-      x = zone.x; y = zone.y; scale = zone.target.kind === "shelf" ? 2.2 : 2.6;
+    const pos = this.targetWorldPos(target);
+    if (!pos) {
+      this.highlight.setVisible(false);
+      this.interactHint.setVisible(false);
+      this.softGlow.setVisible(false);
+      return;
     }
-    this.highlight.setPosition(x, y).setScale(scale).setVisible(true);
-    this.interactHint.setPosition(x, y - 42).setVisible(true);
+    let scale = 2.4;
+    if (target.kind === "customer") scale = 2.8;
+    else if (target.kind === "floor") scale = 1.6;
+    else if (target.kind === "shelf") scale = 2.2;
+    else scale = 2.6;
+
+    this.softGlow.setPosition(pos.x, pos.y + 8).setScale(scale * 0.95).setVisible(true).setAlpha(0.85);
+    this.highlight.setPosition(pos.x, pos.y).setScale(scale).setVisible(true);
+    const bob = Math.sin(this.time.now / 220) * 3;
+    this.interactHint.setPosition(pos.x, pos.y - 44 + bob).setVisible(true);
+  }
+
+  private updateCarryCues(): void {
+    if (!this.session) return;
+    const carry = this.session.getCarry();
+    const slots = this.session.getSlots();
+    const input = this.session.getInput();
+    const near = (x: number, y: number) => Phaser.Math.Distance.Between(this.player.x, this.player.y, x, y) < CUE_RANGE;
+
+    for (const [index, cue] of this.slotAvailableCues) {
+      const empty = !slots[index];
+      const zone = this.zones.find((item) => item.target.kind === "slot" && item.target.index === index);
+      const show = carry.kind === "moduleChip" && empty && !!zone && near(zone.x, zone.y);
+      cue.setVisible(show);
+      if (show) cue.setAlpha(0.55 + Math.sin(this.time.now / 220) * 0.2);
+    }
+
+    for (const zone of this.zones) {
+      const key = JSON.stringify(zone.target);
+      const view = this.zoneViews.get(key);
+      if (!view) continue;
+      const body = view.list[this.bodyIndex(zone.target)] as Phaser.GameObjects.Image;
+      let tint = 0xffffff;
+      if (carry.kind === "order" && zone.target.kind === "input" && !input.order && near(zone.x, zone.y)) {
+        tint = 0xfff2b0;
+      } else if (carry.kind === "moduleChip" && zone.target.kind === "slot" && !slots[zone.target.index] && near(zone.x, zone.y)) {
+        tint = 0xc8fff0;
+      } else if (carry.kind === "product" && zone.target.kind === "output") {
+        tint = 0xffffff;
+      }
+      body.setTint(tint);
+    }
+
+    if (carry.kind === "product") {
+      for (const [id, view] of this.customerViews) {
+        const customer = this.session.getCustomers().find((item) => item.id === id);
+        const match = !!customer && customer.state === "waiting" && customer.id === carry.customerId;
+        const sprite = view.list[0] as Phaser.GameObjects.Sprite;
+        if (match && near(view.x, view.y)) {
+          sprite.setTint(0xfff0b0);
+        } else {
+          sprite.clearTint();
+        }
+      }
+    } else {
+      for (const view of this.customerViews.values()) {
+        (view.list[0] as Phaser.GameObjects.Sprite).clearTint();
+      }
+    }
+  }
+
+  private updateGuideArrow(): void {
+    if (!this.session || !this.guideArrow) return;
+    const tip = this.nextGuidePoint();
+    if (!tip) {
+      this.guideArrow.setVisible(false);
+      return;
+    }
+    // Hide guide when the player is already next to the goal to avoid clutter.
+    const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, tip.x, tip.y);
+    if (dist < INTERACT_RANGE * 0.85) {
+      this.guideArrow.setVisible(false);
+      return;
+    }
+    this.guideArrow.setPosition(tip.x, tip.y - 58).setVisible(true).setAlpha(0.9);
+  }
+
+  private nextGuidePoint(): { x: number; y: number } | undefined {
+    if (!this.session) return undefined;
+    const carry = this.session.getCarry();
+    const input = this.session.getInput();
+    const slots = this.session.getSlots();
+    const output = this.session.getOutput();
+    const producing = this.session.isProducing();
+    const waiting = this.session.getWaitingCustomers();
+
+    if (carry.kind === "product") {
+      const customer = waiting.find((item) => item.id === carry.customerId);
+      const view = customer ? this.customerViews.get(customer.id) : undefined;
+      return view ? { x: view.x, y: view.y } : undefined;
+    }
+    if (output.product && carry.kind === "none") {
+      return this.zones.find((zone) => zone.target.kind === "output");
+    }
+    if (producing) return this.zones.find((zone) => zone.target.kind === "produce");
+    if (this.canProduceNow()) return this.zones.find((zone) => zone.target.kind === "produce");
+    if (carry.kind === "moduleChip") {
+      const empty = this.zones.find((zone) => zone.target.kind === "slot" && !slots[zone.target.index]);
+      return empty;
+    }
+    if (carry.kind === "order" && !input.order) {
+      return this.zones.find((zone) => zone.target.kind === "input");
+    }
+    if (carry.kind === "none" && input.order && !slots.includes("image-maker")) {
+      const shelf = this.zones.find((zone) => zone.target.kind === "shelf" && zone.target.moduleId === "image-maker");
+      return shelf;
+    }
+    if (carry.kind === "none") {
+      const customer = waiting.find((item) => !item.orderTaken);
+      const view = customer ? this.customerViews.get(customer.id) : undefined;
+      if (view) return { x: view.x, y: view.y };
+    }
+    return undefined;
+  }
+
+  private canProduceNow(): boolean {
+    if (!this.session) return false;
+    if (this.session.isProducing()) return false;
+    if (this.session.getOutput().product) return false;
+    if (!this.session.getInput().order) return false;
+    return this.session.getSlots().includes("image-maker");
   }
 
   private stationTexture(target: InteractTarget): string {
@@ -512,6 +751,15 @@ export class KitchenScene extends Phaser.Scene {
       const container = this.add.container(zone.x, zone.y, children);
       container.setDepth(1);
       this.zoneViews.set(key, container);
+
+      if (!isShelf) {
+        const lamp = this.add.image(zone.x + zone.w * 0.28, zone.y - 34, "status-lamp-off").setScale(2).setDepth(2);
+        this.stationLamps.set(key, lamp);
+      }
+      if (zone.target.kind === "slot") {
+        const cue = this.add.image(zone.x, zone.y - 4, "slot-available").setScale(2.1).setVisible(false).setDepth(2);
+        this.slotAvailableCues.set(zone.target.index, cue);
+      }
     }
 
     this.add
@@ -540,42 +788,68 @@ export class KitchenScene extends Phaser.Scene {
     const output = this.session.getOutput();
     const producing = this.session.isProducing();
     const progress = Math.floor(this.session.getProduceProgress() * 100);
+    const canProduce = this.canProduceNow();
 
     for (const zone of this.zones) {
-      const view = this.zoneViews.get(JSON.stringify(zone.target));
+      const key = JSON.stringify(zone.target);
+      const view = this.zoneViews.get(key);
       if (!view) continue;
       const body = view.list[this.bodyIndex(zone.target)] as Phaser.GameObjects.Image;
       const label = view.list[this.labelIndex(zone.target)] as Phaser.GameObjects.Text;
+      const lamp = this.stationLamps.get(key);
 
       if (zone.target.kind === "input") {
         body.setTexture(input.order ? "station-input-filled" : "station-input");
         label.setText("입력기");
+        lamp?.setTexture(input.order ? "status-lamp-on" : "status-lamp-off");
       }
       if (zone.target.kind === "slot") {
         const moduleId = slots[zone.target.index];
         const spriteKey = moduleId ? MODULE_SPRITE[moduleId] : undefined;
         body.setTexture(spriteKey ?? "station-slot");
         label.setText(moduleId ? (modulesById.get(moduleId)?.displayName ?? moduleId) : `슬롯${zone.target.index + 1}`);
+        lamp?.setTexture(moduleId ? "status-lamp-on" : "status-lamp-off");
       }
       if (zone.target.kind === "produce") {
-        body.setTexture(producing ? "station-produce-busy" : "station-produce-idle");
-        label.setText(producing ? `생산 ${progress}%` : "생산");
+        if (producing) body.setTexture("station-produce-busy");
+        else if (canProduce) body.setTexture("station-produce-done");
+        else body.setTexture("station-produce-idle");
+        label.setText(producing ? `생산 ${progress}%` : canProduce ? "READY" : "생산");
+        lamp?.setTexture(producing ? "status-lamp-busy" : canProduce ? "status-lamp-ready" : "status-lamp-off");
         if (this.produceSpark) {
           this.produceSpark.setVisible(producing);
           if (producing) {
             if (this.produceSpark.anims.currentAnim?.key !== "produce-spark-play") {
               this.produceSpark.play("produce-spark-play", true);
             }
+            body.setPosition(Math.sin(this.time.now / 50) * 1.2, -4);
           } else {
             this.produceSpark.stop();
             this.produceSpark.setFrame(0);
+            body.setPosition(0, -4);
+          }
+        }
+        if (this.produceReadyMark) {
+          const showReady = canProduce && !producing;
+          this.produceReadyMark.setVisible(showReady);
+          if (showReady) {
+            this.produceReadyMark.setPosition(zone.x, zone.y - 48);
+            this.produceReadyMark.setAlpha(0.7 + Math.sin(this.time.now / 180) * 0.25);
           }
         }
       }
       if (zone.target.kind === "output") {
         const ready = !!output.product;
         body.setTexture(ready ? "station-output-ready" : "station-output-empty");
-        label.setText("출구");
+        label.setText(ready ? "가져가기" : "출구");
+        lamp?.setTexture(ready ? "status-lamp-ready" : "status-lamp-off");
+        if (this.outputProductPop) {
+          this.outputProductPop.setVisible(ready);
+          if (ready) {
+            const bob = Math.sin(this.time.now / 220) * 3;
+            this.outputProductPop.setPosition(zone.x, zone.y - 22 + bob).setAlpha(1);
+          }
+        }
       }
       if (zone.target.kind === "shelf") {
         const unlocked = this.session.getShelfModuleIds().includes(zone.target.moduleId);
@@ -606,7 +880,9 @@ export class KitchenScene extends Phaser.Scene {
         const promptBubble = this.createPromptBubble(customer.prompt);
         const barBg = this.add.image(0, 30, "patience-frame").setScale(1);
         const bar = this.add.rectangle(-22, 30, 44, 4, 0x60ba6e).setOrigin(0, 0.5);
-        view = this.add.container(x, y, [sprite, promptBubble, barBg, bar]);
+        const orderIcon = this.add.image(18, -8, "order-icon-small").setScale(1.4);
+        const sweat = this.add.image(-18, -6, "customer-sweat").setScale(1.5).setVisible(false);
+        view = this.add.container(x, y, [sprite, promptBubble, barBg, bar, orderIcon, sweat]);
         view.setDepth(3);
         this.customerViews.set(customer.id, view);
       } else {
@@ -615,9 +891,24 @@ export class KitchenScene extends Phaser.Scene {
       const promptBubble = view.list[1] as Phaser.GameObjects.Container;
       this.updatePromptBubble(promptBubble, customer.prompt, !customer.orderTaken);
       const bar = view.list[3] as Phaser.GameObjects.Rectangle;
+      const orderIcon = view.list[4] as Phaser.GameObjects.Image;
+      const sweat = view.list[5] as Phaser.GameObjects.Image;
+      const sprite = view.list[0] as Phaser.GameObjects.Sprite;
       const ratio = customer.patience / customer.maxPatience;
       bar.setSize(Math.max(2, 44 * ratio), 4);
-      bar.setFillStyle(ratio < 0.3 ? 0xdc5454 : 0x60ba6e);
+      if (ratio < 0.25) bar.setFillStyle(0xdc5454);
+      else if (ratio < 0.5) bar.setFillStyle(0xf0b040);
+      else bar.setFillStyle(0x60ba6e);
+      orderIcon.setVisible(!customer.orderTaken);
+      if (!customer.orderTaken) {
+        orderIcon.y = -8 + Math.sin(this.time.now / 250) * 2;
+      }
+      sweat.setVisible(ratio < 0.35);
+      if (ratio < 0.2) {
+        sprite.x = Math.sin(this.time.now / 60) * 1.5;
+      } else {
+        sprite.x = 0;
+      }
     });
   }
 
@@ -652,8 +943,9 @@ export class KitchenScene extends Phaser.Scene {
     for (const item of items) {
       let view = this.floorViews.get(item.id);
       const key = carrySpriteKey(item.item);
+      const near = Phaser.Math.Distance.Between(this.player.x, this.player.y, item.x, item.y) < INTERACT_RANGE + 20;
       if (!view) {
-        const shadow = this.add.image(0, 10, "item-shadow").setScale(2).setAlpha(0.8);
+        const shadow = this.add.image(0, 10, "item-shadow").setScale(2).setAlpha(0.85);
         const icon = this.add.image(0, 0, key).setScale(1.5);
         view = this.add.container(item.x, item.y, [shadow, icon]);
         view.setDepth(1);
@@ -670,6 +962,7 @@ export class KitchenScene extends Phaser.Scene {
         view.setPosition(item.x, item.y);
         const icon = view.list[1] as Phaser.GameObjects.Image;
         if (icon.texture.key !== key) icon.setTexture(key);
+        icon.setTint(near ? 0xfff4c8 : 0xffffff);
       }
     }
   }
@@ -684,6 +977,65 @@ export class KitchenScene extends Phaser.Scene {
     this.carryIcon.setTexture(carrySpriteKey(carry)).setVisible(true);
   }
 
+  private spawnFx(key: string, x: number, y: number, scale = 2): void {
+    if (!this.textures.exists(key)) return;
+    const fx = this.add.image(x, y, key).setScale(scale).setDepth(8);
+    this.tweens.add({
+      targets: fx,
+      y: y - 16,
+      alpha: 0,
+      scaleX: scale * 1.35,
+      scaleY: scale * 1.35,
+      duration: 420,
+      ease: "Sine.easeOut",
+      onComplete: () => fx.destroy(),
+    });
+  }
+
+  private floatCreditText(x: number, y: number, text: string): void {
+    const label = this.add.text(x, y, text, {
+      fontSize: "14px",
+      color: "#b07a00",
+      fontStyle: "bold",
+      stroke: "#fff6df",
+      strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(9);
+    this.tweens.add({
+      targets: label,
+      y: y - 28,
+      alpha: 0,
+      duration: 700,
+      onComplete: () => label.destroy(),
+    });
+  }
+
+  private shakeTarget(target?: InteractTarget, amplitude = 5): void {
+    if (!target) {
+      this.shakeAt(this.player.x, this.player.y, this.player, amplitude);
+      return;
+    }
+    if (target.kind === "customer") {
+      const view = this.customerViews.get(target.id);
+      if (view) this.shakeAt(view.x, view.y, view, amplitude);
+      return;
+    }
+    if (target.kind === "floor") return;
+    const view = this.zoneViews.get(JSON.stringify(target));
+    if (view) this.shakeAt(view.x, view.y, view, amplitude);
+  }
+
+  private shakeAt(_x: number, _y: number, target: Phaser.GameObjects.Container | Phaser.GameObjects.Image, amplitude = 5): void {
+    const originX = target.x;
+    this.tweens.add({
+      targets: target,
+      x: originX - amplitude,
+      duration: 45,
+      yoyo: true,
+      repeat: 3,
+      onComplete: () => { target.x = originX; },
+    });
+  }
+
   private drawFloor(): void {
     this.add.tileSprite(0, 0, MAP_W, MAP_H, "floor-tile").setOrigin(0, 0).setDepth(-20);
     this.add.tileSprite(0, 0, MAP_W, 28, "wall-rim").setOrigin(0, 0).setDepth(-19);
@@ -691,7 +1043,14 @@ export class KitchenScene extends Phaser.Scene {
     this.add.tileSprite(MAP_W / 2, 88, 620, 36, "counter-desk").setOrigin(0.5).setDepth(-18);
     this.add.tileSprite(MAP_W / 2, 360, 620, 56, "conveyor-belt").setOrigin(0.5).setDepth(-17);
     this.add.tileSprite(MAP_W / 2, 620, 660, 40, "counter-desk").setOrigin(0.5).setDepth(-18);
-    // decorations away from interaction lanes
+
+    // Soft factory flow marks along the production line (not a forced path).
+    const flowYs = 392;
+    for (const x of [150, 250, 350, 450, 560]) {
+      this.add.image(x, flowYs, "floor-flow").setScale(1.6).setAlpha(0.35).setDepth(-16.5);
+    }
+    this.add.image(MAP_W / 2, 250, "floor-flow").setScale(1.4).setAlpha(0.22).setAngle(90).setDepth(-16.5);
+
     this.add.image(48, 200, "decor-pipe").setScale(2).setDepth(-16);
     this.add.image(670, 200, "decor-crate").setScale(2).setDepth(-16);
     this.add.image(48, 480, "decor-sticker").setScale(2).setDepth(-16);

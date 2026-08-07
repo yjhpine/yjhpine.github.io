@@ -2,6 +2,7 @@
 
 ## 2026-08-07
 
+- UX 시각적 피드백 패스: keycap Z, soft glow, carry cue, slot available, status lamps, produce READY/완료, 손님 인내심/땀, pickup/insert/success/error FX, 가이드 화살표, HUD carry 아이콘 동기화. 플레이어 Cat_*·핵심 세션 로직 미변경.
 - Aseprite MCP(`@iborymagic/aseprite-mcp`) + LibreSprite CLI로 스테이션/칩 .ase 아카이브·메타데이터 생성.
 - 손님 2프레임 idle, 생산 spark 4프레임, 카운터 벨 링 시트를 Phaser에 연결.
 - Cute Pixel Art Toy Factory 그래픽 패스: `public/assets/art/**` 신규 에셋, KitchenScene/UI 적용.
