@@ -1,0 +1,6 @@
+구현 기준으로 기획서 01~05 전면 개정
+
+- 구기획(포트 DAG·캐릭터 미조작·장치 배치) 서술 폐기
+- 현재 빌드 반영: Overcooked 운반, 칩 슬롯, VRAM 소프트 제약, r00 단계 튜토리얼, Z/C/X, 해금 모달, 점수 S~D
+- Docs/_tools/generate_plans.py 재작성 후 PDF 5종 재생성
+- Docs ImplementationPlan / Decisions / Todo / Progress / SubmissionChecklist 동기화
