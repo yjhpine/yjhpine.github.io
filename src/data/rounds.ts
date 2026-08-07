@@ -8,9 +8,22 @@ export interface RoundDefinition {
   /** Order templates that can be assigned to customers this round. */
   customerOrderPool: string[];
   baseReward: number;
+  /** Guided practice round: no patience drain / leave. */
+  isTutorial?: boolean;
 }
 
 export const rounds: RoundDefinition[] = [
+  {
+    id: "r00",
+    title: "튜토리얼 · 따라 하며 배우기",
+    tutorial: "안내를 따라 한 손님을 응대해 보세요. 실패 없이 끝까지 진행합니다.",
+    targetCustomers: 1,
+    vramBudget: 32,
+    availableModuleIds: ["image-maker"],
+    customerOrderPool: ["o01"],
+    baseReward: 50,
+    isTutorial: true,
+  },
   {
     id: "r01",
     title: "라운드 1 · 첫 손님들",

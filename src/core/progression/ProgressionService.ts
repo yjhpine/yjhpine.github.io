@@ -11,8 +11,8 @@ export class ProgressionService {
       completedRoundIds: [],
       unlockedModuleIds: ["image-maker"],
       introducedModuleIds: [],
-      tutorialStage: 1,
-      activeRoundId: "r01",
+      tutorialStage: 0,
+      activeRoundId: "r00",
       bestRoundScores: {},
     });
   }
@@ -54,7 +54,7 @@ export class ProgressionService {
     if (next) {
       const round = roundsById.get(next)!;
       this.data.unlockedModuleIds = [...new Set([...this.data.unlockedModuleIds, ...round.availableModuleIds])];
-      this.data.tutorialStage = Math.min(6, this.data.tutorialStage + 1);
+      this.data.tutorialStage = Math.min(7, this.data.tutorialStage + 1);
     }
   }
 

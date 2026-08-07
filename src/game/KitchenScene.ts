@@ -3,6 +3,7 @@ import { KitchenSession } from "../core/kitchen/KitchenSession";
 import type { CarryItem, KitchenActionResult, RoundStats } from "../core/kitchen/types";
 import { modulesById } from "../data/modules";
 import { GameEventBus } from "./events/GameEventBus";
+import { TutorialGuide } from "./TutorialGuide";
 
 type SceneEvents = {
   notice: { message: string; tone?: "error" | "info" | "success" };
@@ -11,6 +12,7 @@ type SceneEvents = {
   customerLeft: string;
   inspectToggle: void;
   roundFinished: RoundStats;
+  tutorialStep: { step: string; hint: string; active: boolean };
 };
 
 type InteractTarget =
@@ -57,6 +59,7 @@ const CUSTOMER_KINDS = ["rabbit", "dog", "hamster", "duck"] as const;
 export class KitchenScene extends Phaser.Scene {
   readonly eventBus = new GameEventBus<SceneEvents>();
   private session: KitchenSession | undefined;
+  private readonly tutorialGuide = new TutorialGuide();
   private player!: Phaser.GameObjects.Container;
   private playerSprite!: Phaser.GameObjects.Sprite;
   private carryIcon!: Phaser.GameObjects.Image;
@@ -247,13 +250,19 @@ export class KitchenScene extends Phaser.Scene {
   loadSession(session: KitchenSession): void {
     this.session = session;
     this.wasProducing = false;
+    this.tutorialGuide.reset(!!session.roundDefinition.isTutorial);
     this.player.setPosition(MAP_W / 2, MAP_H * 0.62);
     this.refreshStationLabels();
     this.syncCustomers();
     this.syncFloorItems();
     this.syncCarryVisual();
     this.syncPlayerAnim();
+    this.emitTutorialStep();
     this.eventBus.emit("sessionChanged", undefined);
+  }
+
+  getTutorialHint(): string | undefined {
+    return this.tutorialGuide.isEnabled() ? this.tutorialGuide.getHint() : undefined;
   }
 
   getSession(): KitchenSession | undefined { return this.session; }
@@ -264,6 +273,7 @@ export class KitchenScene extends Phaser.Scene {
     this.dashCooldown = Math.max(0, this.dashCooldown - dt);
     this.movePlayer(dt);
     for (const event of this.session.tick(dt)) this.handleSessionEvent(event);
+    if (this.tutorialGuide.sync(this.session)) this.emitTutorialStep();
     this.syncCustomers();
     this.syncFloorItems();
     this.refreshStationLabels();
@@ -417,8 +427,16 @@ export class KitchenScene extends Phaser.Scene {
     const target = this.nearestTarget({ includeFloor: carry.kind === "none" });
     let result: KitchenActionResult;
     if (target) {
+      if (this.tutorialGuide.isActive() && !this.tutorialGuide.matchesTarget(this.session, target)) {
+        this.eventBus.emit("notice", { message: this.tutorialGuide.getHint(), tone: "info" });
+        return;
+      }
       result = this.applyInteraction(target);
     } else if (carry.kind !== "none") {
+      if (this.tutorialGuide.blockDrop()) {
+        this.eventBus.emit("notice", { message: this.tutorialGuide.getHint(), tone: "info" });
+        return;
+      }
       const dropX = Phaser.Math.Clamp(this.player.x + this.facingX * 28, 40, MAP_W - 40);
       const dropY = Phaser.Math.Clamp(this.player.y + this.facingY * 28, 100, MAP_H - 40);
       result = this.session.dropToFloor(dropX, dropY);
@@ -426,10 +444,20 @@ export class KitchenScene extends Phaser.Scene {
       // Nothing nearby and empty hands: no error FX (only wrong-target interactions react).
       return;
     }
+    if (this.tutorialGuide.onAfterAction(result, this.session)) this.emitTutorialStep();
     this.playActionFeedback(result, target);
     this.handleSessionEvent(result);
     this.syncFloorItems();
     this.eventBus.emit("sessionChanged", undefined);
+  }
+
+  private emitTutorialStep(): void {
+    if (!this.tutorialGuide.isEnabled()) return;
+    this.eventBus.emit("tutorialStep", {
+      step: this.tutorialGuide.getStep(),
+      hint: this.tutorialGuide.getHint(),
+      active: this.tutorialGuide.isActive(),
+    });
   }
 
   private applyInteraction(target: InteractTarget): KitchenActionResult {
@@ -580,7 +608,10 @@ export class KitchenScene extends Phaser.Scene {
 
   private updateHighlight(): void {
     const carry = this.session?.getCarry();
-    const target = this.nearestTarget({ includeFloor: !carry || carry.kind === "none" });
+    let target = this.nearestTarget({ includeFloor: !carry || carry.kind === "none" });
+    if (target && this.session && this.tutorialGuide.isActive() && !this.tutorialGuide.matchesTarget(this.session, target)) {
+      target = undefined;
+    }
     if (!target || !this.highlight || !this.interactHint || !this.softGlow) {
       this.highlight?.setVisible(false);
       this.interactHint?.setVisible(false);
@@ -691,6 +722,9 @@ export class KitchenScene extends Phaser.Scene {
 
   private nextGuidePoint(): { x: number; y: number } | undefined {
     if (!this.session) return undefined;
+    if (this.tutorialGuide.isEnabled()) {
+      return this.tutorialGuidePoint();
+    }
     const carry = this.session.getCarry();
     const input = this.session.getInput();
     const slots = this.session.getSlots();
@@ -719,6 +753,36 @@ export class KitchenScene extends Phaser.Scene {
       if (view) return { x: view.x, y: view.y };
     }
     return undefined;
+  }
+
+  private tutorialGuidePoint(): { x: number; y: number } | undefined {
+    if (!this.session || !this.tutorialGuide.isActive()) return undefined;
+    const allowed = this.tutorialGuide.allowedTarget(this.session);
+    if (!allowed) {
+      // wait-output: point at produce/output while waiting
+      if (this.tutorialGuide.getStep() === "wait-output") {
+        return this.zones.find((zone) => zone.target.kind === "output")
+          ?? this.zones.find((zone) => zone.target.kind === "produce");
+      }
+      return undefined;
+    }
+    if (allowed.kind === "customer") {
+      const id = allowed.id ?? this.session.getWaitingCustomers()[0]?.id;
+      const view = id ? this.customerViews.get(id) : undefined;
+      return view ? { x: view.x, y: view.y } : undefined;
+    }
+    if (allowed.kind === "shelf") {
+      return this.zones.find((zone) => zone.target.kind === "shelf" && zone.target.moduleId === allowed.moduleId);
+    }
+    if (allowed.kind === "slot") {
+      const slots = this.session.getSlots();
+      if (allowed.index !== undefined) {
+        const preferred = this.zones.find((zone) => zone.target.kind === "slot" && zone.target.index === allowed.index);
+        if (preferred) return preferred;
+      }
+      return this.zones.find((zone) => zone.target.kind === "slot" && !slots[zone.target.index]);
+    }
+    return this.zones.find((zone) => zone.target.kind === allowed.kind);
   }
 
   private canProduceNow(): boolean {

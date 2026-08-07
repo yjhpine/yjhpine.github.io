@@ -7,6 +7,7 @@ import { ProgressionService } from "./progression/ProgressionService";
 import { SaveService, type StorageAdapter } from "./save/SaveService";
 import { ordersById } from "../data/orders";
 import { buildRoundOrderQueue, rounds } from "../data/rounds";
+import { TutorialGuide } from "../game/TutorialGuide";
 import { renderPreview } from "../ui/renderPreview";
 
 function serveCustomer(session: KitchenSession, chips: string[]): void {
@@ -297,6 +298,7 @@ class MemoryStorage implements StorageAdapter {
 describe("Module unlock tutorials", () => {
   it("queues image-maker on a fresh save", () => {
     const progression = ProgressionService.createDefault();
+    expect(progression.pendingModuleTutorials("r00")).toEqual(["image-maker"]);
     expect(progression.pendingModuleTutorials("r01")).toEqual(["image-maker"]);
   });
 
@@ -312,17 +314,20 @@ describe("Module unlock tutorials", () => {
 
 describe("SaveService v2", () => {
   it("restores defaults for a missing save", () => {
-    expect(new SaveService(new MemoryStorage()).load().currentRoundId).toBe("r01");
+    expect(new SaveService(new MemoryStorage()).load().currentRoundId).toBe("r00");
   });
 
   it("persists round progression", () => {
     const storage = new MemoryStorage();
     const service = new SaveService(storage);
     const progression = ProgressionService.createDefault();
+    progression.completeActiveRound(50, 50);
+    progression.activateRound("r01");
     progression.completeActiveRound(92, 180);
     service.save(progression);
     const loaded = service.load();
-    expect(loaded.credits).toBe(180);
+    expect(loaded.credits).toBe(230);
+    expect(loaded.bestRoundScores.r00).toBe(50);
     expect(loaded.bestRoundScores.r01).toBe(92);
     expect(loaded.unlockedModuleIds).toContain("style-processor");
   });
@@ -334,5 +339,76 @@ describe("SaveService v2", () => {
     progression.markModulesIntroduced(["image-maker"]);
     service.save(progression);
     expect(service.load().pendingModuleTutorials("r01")).toEqual([]);
+  });
+});
+
+describe("Tutorial round r00", () => {
+  it("starts progression at r00 and advances to r01 on clear", () => {
+    const progression = ProgressionService.createDefault();
+    expect(progression.currentRoundId).toBe("r00");
+    expect(rounds[0]?.id).toBe("r00");
+    expect(rounds[0]?.isTutorial).toBe(true);
+    progression.completeActiveRound(80, 50);
+    expect(progression.isComplete("r00")).toBe(true);
+    expect(progression.nextRoundId()).toBe("r01");
+    progression.activateRound("r01");
+    expect(progression.currentRoundId).toBe("r01");
+  });
+
+  it("does not drain patience during the tutorial round", () => {
+    const session = new KitchenSession("r00");
+    session.tick(1);
+    const customer = session.getWaitingCustomers()[0];
+    expect(customer).toBeTruthy();
+    const before = customer!.patience;
+    session.tick(20);
+    expect(session.getWaitingCustomers()[0]?.patience).toBe(before);
+    expect(session.getStats().leftCustomers).toBe(0);
+  });
+});
+
+describe("TutorialGuide step lock", () => {
+  it("advances only on the expected actions", () => {
+    const guide = new TutorialGuide();
+    const session = new KitchenSession("r00");
+    session.tick(1);
+    guide.reset(true);
+    expect(guide.getStep()).toBe("pick-order");
+
+    const customer = session.getWaitingCustomers()[0]!;
+    expect(guide.matchesTarget(session, { kind: "input" })).toBe(false);
+    expect(guide.matchesTarget(session, { kind: "customer", id: customer.id })).toBe(true);
+
+    const pick = session.pickUpFromCustomer(customer.id);
+    expect(guide.onAfterAction(pick, session)).toBe(true);
+    expect(guide.getStep()).toBe("insert-input");
+
+    const insert = session.interactInput();
+    expect(guide.onAfterAction(insert, session)).toBe(true);
+    expect(guide.getStep()).toBe("pick-chip");
+
+    const chip = session.pickUpFromShelf("image-maker");
+    expect(guide.onAfterAction(chip, session)).toBe(true);
+    expect(guide.getStep()).toBe("insert-slot");
+
+    const slot = session.interactSlot(0);
+    expect(guide.onAfterAction(slot, session)).toBe(true);
+    expect(guide.getStep()).toBe("produce");
+
+    const produce = session.startProduce();
+    expect(guide.onAfterAction(produce, session)).toBe(true);
+    expect(guide.getStep()).toBe("wait-output");
+    session.tick(3);
+    expect(guide.sync(session)).toBe(true);
+    expect(guide.getStep()).toBe("pick-output");
+
+    const output = session.interactOutput();
+    expect(guide.onAfterAction(output, session)).toBe(true);
+    expect(guide.getStep()).toBe("deliver");
+
+    const deliver = session.deliverToCustomer(customer.id);
+    expect(guide.onAfterAction(deliver, session)).toBe(true);
+    expect(guide.getStep()).toBe("done");
+    expect(guide.isActive()).toBe(false);
   });
 });

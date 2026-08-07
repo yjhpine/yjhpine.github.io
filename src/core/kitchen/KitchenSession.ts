@@ -136,6 +136,7 @@ export class KitchenSession {
 
     for (const customer of this.customers) {
       if (customer.state !== "waiting") continue;
+      if (this.round.isTutorial) continue;
       customer.patience = Math.max(0, customer.patience - dt);
       if (customer.patience <= 0) {
         customer.state = "left";
