@@ -1,6 +1,6 @@
 {
   "name": "애스프라이트 MCP",
-  "install": "bash scripts/setup-aseprite-cli.sh && npm install && npx -y @iborymagic/aseprite-mcp --help >/dev/null 2>&1 || true && npm run typecheck && npm run test",
+  "install": "bash scripts/setup-aseprite-cli.sh && npm ci && npx -y @iborymagic/aseprite-mcp --help >/dev/null 2>&1; npm run typecheck && npm run test",
   "terminals": [
     {
       "name": "vite-dev",
