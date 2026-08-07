@@ -229,6 +229,41 @@ describe("KitchenSession rounds and VRAM", () => {
     expect(session.getFloorItems()).toHaveLength(0);
   });
 
+  it("clears carried and input orders when the customer leaves", () => {
+    const session = new KitchenSession("r01");
+    session.tick(0.1);
+    const customer = session.getWaitingCustomers()[0]!;
+    session.pickUpFromCustomer(customer.id);
+    session.interactInput();
+    expect(session.getInput().order?.customerId).toBe(customer.id);
+    for (const event of session.tick(50)) {
+      if (event.leftCustomerId) break;
+    }
+    expect(session.getInput().order).toBeNull();
+    expect(session.getCarry().kind).toBe("none");
+    expect(session.isProducing()).toBe(false);
+  });
+
+  it("allows only one copy of each module chip from the shelf per round", () => {
+    const session = new KitchenSession("r01");
+    session.tick(0.1);
+    expect(session.pickUpFromShelf("image-maker").ok).toBe(true);
+    expect(session.getShelfModuleIds()).not.toContain("image-maker");
+    expect(session.pickUpFromShelf("image-maker").ok).toBe(false);
+    expect(session.getCarry()).toMatchObject({ kind: "moduleChip", moduleId: "image-maker" });
+  });
+
+  it("returns shelf stock when the line is reset", () => {
+    const session = new KitchenSession("r01");
+    session.tick(0.1);
+    session.pickUpFromShelf("image-maker");
+    session.interactSlot(0);
+    expect(session.getShelfModuleIds()).not.toContain("image-maker");
+    session.resetLine();
+    expect(session.getShelfModuleIds()).toContain("image-maker");
+    expect(session.getSlots()[0]).toBeNull();
+  });
+
   it("swaps a carried module chip with a filled slot", () => {
     const session = new KitchenSession("r02", ["image-maker", "style-processor"]);
     session.tick(0.1);
@@ -241,16 +276,14 @@ describe("KitchenSession rounds and VRAM", () => {
     expect(session.getCarry()).toMatchObject({ kind: "moduleChip", moduleId: "image-maker" });
   });
 
-  it("rejects swapping the same module chip into its slot", () => {
+  it("rejects putting a non-chip item into a module slot", () => {
     const session = new KitchenSession("r01");
     session.tick(0.1);
-    session.pickUpFromShelf("image-maker");
-    session.interactSlot(0);
-    session.pickUpFromShelf("image-maker");
+    const customer = session.getWaitingCustomers()[0]!;
+    session.pickUpFromCustomer(customer.id);
     const result = session.interactSlot(0);
     expect(result.ok).toBe(false);
-    expect(session.getSlots()[0]).toBe("image-maker");
-    expect(session.getCarry()).toMatchObject({ kind: "moduleChip", moduleId: "image-maker" });
+    expect(result.message).toMatch(/모듈 칩만/);
   });
 });
 

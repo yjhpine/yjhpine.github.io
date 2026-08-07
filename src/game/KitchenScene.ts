@@ -540,7 +540,9 @@ export class KitchenScene extends Phaser.Scene {
     const includeFloor = options.includeFloor ?? true;
     let best: { target: InteractTarget; dist: number } | undefined;
     for (const zone of this.zones) {
-      if (zone.target.kind === "shelf" && this.session && !this.session.getShelfModuleIds().includes(zone.target.moduleId)) continue;
+      if (zone.target.kind === "shelf") {
+        if (!this.session?.getShelfModuleIds().includes(zone.target.moduleId)) continue;
+      }
       const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, zone.x, zone.y);
       if (dist > INTERACT_RANGE) continue;
       if (!best || dist < best.dist) best = { target: zone.target, dist };
@@ -893,12 +895,23 @@ export class KitchenScene extends Phaser.Scene {
         }
       }
       if (zone.target.kind === "shelf") {
-        const unlocked = this.session.getShelfModuleIds().includes(zone.target.moduleId);
+        const unlocked = this.session.getUnlockedModuleIds().includes(zone.target.moduleId);
+        const inStock = this.session.getShelfModuleIds().includes(zone.target.moduleId);
         const spriteKey = MODULE_SPRITE[zone.target.moduleId] ?? "module-locked";
-        body.setTexture(unlocked ? spriteKey : "module-locked");
-        body.setAlpha(unlocked ? 1 : 0.55);
-        const def = modulesById.get(zone.target.moduleId);
-        label.setText(unlocked ? (def?.displayName ?? zone.target.moduleId) : "잠김");
+        if (!unlocked) {
+          body.setTexture("module-locked");
+          body.setAlpha(0.55);
+          label.setText("잠김");
+        } else if (!inStock) {
+          body.setTexture("station-module-shelf");
+          body.setAlpha(0.7);
+          label.setText("없음");
+        } else {
+          body.setTexture(spriteKey);
+          body.setAlpha(1);
+          const def = modulesById.get(zone.target.moduleId);
+          label.setText(def?.displayName ?? zone.target.moduleId);
+        }
       }
     }
   }

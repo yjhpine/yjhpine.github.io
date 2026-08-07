@@ -34,6 +34,7 @@ export class KitchenSession {
   private readonly slots: Array<string | null>;
   private readonly output: OutputStation = { product: null };
   private shelfModuleIds: string[];
+  private unlockedModuleIds: string[];
   private producing = false;
   private produceTimer = 0;
   private plannedProduceDuration = 1;
@@ -54,8 +55,11 @@ export class KitchenSession {
     this.round = roundsById.get(roundId) ?? roundsById.get("r01")!;
     this.slots = Array.from({ length: slotCount }, () => null);
     const unlocked = unlockedModuleIds ?? this.round.availableModuleIds;
-    this.shelfModuleIds = unlocked.filter((id) => (CHIP_MODULE_IDS as readonly string[]).includes(id));
-    if (!this.shelfModuleIds.includes("image-maker")) this.shelfModuleIds = ["image-maker", ...this.shelfModuleIds];
+    this.unlockedModuleIds = unlocked.filter((id) => (CHIP_MODULE_IDS as readonly string[]).includes(id));
+    if (!this.unlockedModuleIds.includes("image-maker")) {
+      this.unlockedModuleIds = ["image-maker", ...this.unlockedModuleIds];
+    }
+    this.shelfModuleIds = [...this.unlockedModuleIds];
     this.orderQueue = buildRoundOrderQueue(this.round);
     this.spawnCustomer();
   }
@@ -82,6 +86,7 @@ export class KitchenSession {
     };
   }
   getShelfModuleIds(): string[] { return [...this.shelfModuleIds]; }
+  getUnlockedModuleIds(): string[] { return [...this.unlockedModuleIds]; }
   isProducing(): boolean { return this.producing; }
   getProduceProgress(): number {
     if (!this.producing) return 0;
@@ -108,8 +113,11 @@ export class KitchenSession {
   }
 
   setUnlockedModules(moduleIds: string[]): void {
-    this.shelfModuleIds = moduleIds.filter((id) => (CHIP_MODULE_IDS as readonly string[]).includes(id));
-    if (!this.shelfModuleIds.includes("image-maker")) this.shelfModuleIds = ["image-maker", ...this.shelfModuleIds];
+    this.unlockedModuleIds = moduleIds.filter((id) => (CHIP_MODULE_IDS as readonly string[]).includes(id));
+    if (!this.unlockedModuleIds.includes("image-maker")) {
+      this.unlockedModuleIds = ["image-maker", ...this.unlockedModuleIds];
+    }
+    this.shelfModuleIds = [...this.unlockedModuleIds];
   }
 
   tick(dt: number): KitchenActionResult[] {
@@ -179,8 +187,10 @@ export class KitchenSession {
 
   pickUpFromShelf(moduleId: string): KitchenActionResult {
     if (this.carry.kind !== "none") return fail("손을 비운 뒤에 모듈 칩을 집으세요.");
-    if (!this.shelfModuleIds.includes(moduleId)) return fail("아직 해금되지 않은 모듈입니다.");
+    if (!this.unlockedModuleIds.includes(moduleId)) return fail("아직 해금되지 않은 모듈입니다.");
+    if (!this.shelfModuleIds.includes(moduleId)) return fail("이 모듈 칩은 이미 꺼냈습니다. 라운드당 1개뿐입니다.");
     this.carry = { kind: "moduleChip", moduleId };
+    this.shelfModuleIds = this.shelfModuleIds.filter((id) => id !== moduleId);
     const cost = modulesById.get(moduleId)?.vramCost ?? 0;
     return ok(`모듈 칩을 집었습니다. (VRAM ${cost}) 빈 슬롯에 꽂으세요.`, "info");
   }
@@ -301,8 +311,17 @@ export class KitchenSession {
     this.pendingSpend = 0;
     this.input.order = null;
     this.output.product = null;
-    for (let i = 0; i < this.slots.length; i += 1) this.slots[i] = null;
-    if (this.carry.kind !== "none") this.carry = emptyCarry();
+    for (let i = 0; i < this.slots.length; i += 1) {
+      const moduleId = this.slots[i];
+      if (moduleId) this.returnChipToShelf(moduleId);
+      this.slots[i] = null;
+    }
+    if (this.carry.kind === "moduleChip") {
+      this.returnChipToShelf(this.carry.moduleId);
+      this.carry = emptyCarry();
+    } else if (this.carry.kind !== "none") {
+      this.carry = emptyCarry();
+    }
   }
 
   private canSpawnMore(): boolean {
@@ -377,7 +396,15 @@ export class KitchenSession {
   private clearCustomerWork(customerId: string): void {
     if (this.carry.kind === "order" && this.carry.customerId === customerId) this.carry = emptyCarry();
     if (this.carry.kind === "product" && this.carry.customerId === customerId) this.carry = emptyCarry();
-    if (this.input.order?.customerId === customerId) this.input.order = null;
+    if (this.input.order?.customerId === customerId) {
+      this.input.order = null;
+      // Abort in-flight production tied to the left customer's order slip.
+      if (this.producing) {
+        this.producing = false;
+        this.produceTimer = 0;
+        this.pendingSpend = 0;
+      }
+    }
     if (this.output.product?.customerId === customerId) this.output.product = null;
     for (let i = this.floorItems.length - 1; i >= 0; i -= 1) {
       const item = this.floorItems[i]!.item;
@@ -385,6 +412,12 @@ export class KitchenSession {
         this.floorItems.splice(i, 1);
       }
     }
+  }
+
+  private returnChipToShelf(moduleId: string): void {
+    if (!this.unlockedModuleIds.includes(moduleId)) return;
+    if (this.shelfModuleIds.includes(moduleId)) return;
+    this.shelfModuleIds = [...this.shelfModuleIds, moduleId];
   }
 }
 
