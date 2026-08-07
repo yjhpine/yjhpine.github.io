@@ -1,0 +1,8 @@
+게임 소개 및 설명 PDF 작성
+
+- 문서/AI_Factory_게임소개_및_설명.pdf
+  · 게임 개요 (장르·루프·특징)
+  · 플레이 방법 (조작·주방·튜토리얼·VRAM·라운드)
+  · 실행 방법 (Pages·로컬·검증)
+- Docs/_tools/generate_intro.py 생성 스크립트
+- README에 문서 링크 추가
