@@ -1,0 +1,9 @@
+실습형 튜토리얼 라운드 r00 추가
+
+- rounds.ts: isTutorial 플래그 + r00 (손님 1, image-maker, 실패 없는 따라하기)
+- ProgressionService 기본 activeRoundId = r00, 클리어 후 r01 진입
+- KitchenSession: 튜토리얼 중 인내심 감소/이탈 스킵
+- TutorialGuide: 단계 잠금 FSM (주문서→입력→칩→슬롯→생산→출구→전달)
+- KitchenScene: 허용 대상만 Z 상호작용, 가이드 화살표/하이라이트 연동
+- UIController: 튜토리얼은 해금 모달 생략, 단계 안내 문구 동기화, 완료 시 짧은 정산 후 r01
+- 테스트: patience 스킵, 가이드 진행, 기본 진행 r00→r01

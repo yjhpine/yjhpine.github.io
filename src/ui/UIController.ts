@@ -45,6 +45,7 @@ export class UIController {
     scene.eventBus.on("customerLeft", () => this.renderHud());
     scene.eventBus.on("inspectToggle", () => this.toggleInspect());
     scene.eventBus.on("roundFinished", (stats) => this.onRoundFinished(stats));
+    scene.eventBus.on("tutorialStep", ({ hint, active }) => this.onTutorialStep(hint, active));
   }
 
   private bindDom(): void {
@@ -83,7 +84,32 @@ export class UIController {
     this.scene.scale.refresh();
     this.renderRoundInfo();
     this.renderHud();
-    this.maybeShowUnlockTutorial();
+    if (this.session?.roundDefinition.isTutorial) {
+      // Guided round uses step banners; skip the blocking unlock modal.
+      const pending = this.progression.pendingModuleTutorials();
+      if (pending.length > 0) {
+        this.progression.markModulesIntroduced(pending);
+        this.saveService.save(this.progression);
+      }
+      const hint = this.scene.getTutorialHint();
+      if (hint) this.syncTutorialMessage(hint);
+    } else {
+      this.maybeShowUnlockTutorial();
+    }
+  }
+
+  private onTutorialStep(hint: string, active: boolean): void {
+    if (!this.session?.roundDefinition.isTutorial) return;
+    this.syncTutorialMessage(hint);
+    if (!active && hint.includes("완료")) {
+      this.showNotice("튜토리얼 완료! 본 라운드로 넘어갑니다.", "success");
+    }
+  }
+
+  private syncTutorialMessage(hint: string): void {
+    this.byId("tutorial-message").innerHTML = `
+      <img class="tutorial-flow" src="/assets/art/ui/tutorial_flow.png" alt="" width="128" height="40" />
+      <span>${escapeHtml(hint)}</span>`;
   }
 
   private renderMenu(): void {
@@ -245,6 +271,18 @@ export class UIController {
   private showRoundSummary(stats: RoundStats, score: RoundScoreBreakdown): void {
     this.roundSummaryOpen = true;
     const next = this.progression.nextRoundId();
+    const isTutorial = !!roundsById.get(stats.roundId)?.isTutorial;
+    if (isTutorial) {
+      this.byId("round-summary-body").innerHTML = `
+        <p class="inspect-eyebrow">튜토리얼</p>
+        <h2>튜토리얼 완료!</h2>
+        <p class="inspect-hint">조작을 익혔습니다. 본 라운드에서 손님을 응대해 보세요.</p>
+        <div class="result-summary success"><b>보상 +${score.creditReward} 크레딧</b><span>다음으로 라운드 1이 열립니다.</span></div>`;
+      this.byId<HTMLButtonElement>("next-round").hidden = !next;
+      this.byId<HTMLButtonElement>("next-round").textContent = next ? "본 라운드 시작 →" : "완료";
+      this.byId("round-summary-modal").classList.remove("is-hidden");
+      return;
+    }
     this.byId("round-summary-body").innerHTML = `
       <p class="inspect-eyebrow">라운드 정산</p>
       <h2>등급 ${score.grade} · ${score.total}점</h2>
@@ -343,7 +381,7 @@ function shell(): string {
     <header class="topbar">
       <div>
         <span class="brand-chip small">AI FACTORY</span>
-        <span id="order-step" class="order-step">1 / 6</span>
+        <span id="order-step" class="order-step">1 / 7</span>
       </div>
       <div class="top-actions">
         <span id="credits" class="credits">0 C</span>
