@@ -222,9 +222,9 @@ export class KitchenScene extends Phaser.Scene {
     this.guideArrow = this.add.image(0, 0, "guide-arrow").setScale(1.8).setVisible(false).setDepth(6.5);
     const produceZone = this.zones.find((zone) => zone.target.kind === "produce");
     const outputZone = this.zones.find((zone) => zone.target.kind === "output");
-    const produceX = produceZone?.x ?? 680;
+    const produceX = produceZone?.x ?? 520;
     const produceY = produceZone?.y ?? 360;
-    const outputX = outputZone?.x ?? 850;
+    const outputX = outputZone?.x ?? 640;
     const outputY = outputZone?.y ?? 360;
     this.produceSpark = this.add.sprite(produceX, produceY - 42, "produce-spark", 0).setScale(2).setVisible(false).setDepth(4);
     this.produceReadyMark = this.add.image(produceX, produceY - 42, "fx-ready").setScale(2).setVisible(false).setDepth(4);
@@ -810,12 +810,12 @@ export class KitchenScene extends Phaser.Scene {
 
   private buildStations(): void {
     this.zones = [
-      { target: { kind: "input" }, x: 110, y: 360, w: 100, h: 70, label: "입력기" },
-      { target: { kind: "slot", index: 0 }, x: 260, y: 360, w: 78, h: 70, label: "슬롯1" },
-      { target: { kind: "slot", index: 1 }, x: 390, y: 360, w: 78, h: 70, label: "슬롯2" },
-      { target: { kind: "slot", index: 2 }, x: 520, y: 360, w: 78, h: 70, label: "슬롯3" },
-      { target: { kind: "produce" }, x: 680, y: 360, w: 88, h: 70, label: "생산" },
-      { target: { kind: "output" }, x: 850, y: 360, w: 100, h: 70, label: "출구" },
+      { target: { kind: "input" }, x: 90, y: 360, w: 100, h: 70, label: "입력기" },
+      { target: { kind: "slot", index: 0 }, x: 210, y: 360, w: 78, h: 70, label: "슬롯1" },
+      { target: { kind: "slot", index: 1 }, x: 310, y: 360, w: 78, h: 70, label: "슬롯2" },
+      { target: { kind: "slot", index: 2 }, x: 410, y: 360, w: 78, h: 70, label: "슬롯3" },
+      { target: { kind: "produce" }, x: 520, y: 360, w: 88, h: 70, label: "생산" },
+      { target: { kind: "output" }, x: 640, y: 360, w: 100, h: 70, label: "출구" },
     ];
 
     const shelfModules = ["image-maker", "style-processor", "ban-list", "composition-planner", "sharpener", "quality-checker"];
@@ -1192,14 +1192,15 @@ export class KitchenScene extends Phaser.Scene {
     this.add.tileSprite(0, 0, MAP_W, 28, "wall-rim").setOrigin(0, 0).setDepth(-19);
     this.add.tileSprite(0, MAP_H - 28, MAP_W, 28, "wall-rim").setOrigin(0, 0).setDepth(-19);
     this.add.tileSprite(MAP_W / 2, 88, 860, 36, "counter-desk").setOrigin(0.5).setDepth(-18);
-    this.add.tileSprite(MAP_W / 2, 360, 860, 56, "conveyor-belt").setOrigin(0.5).setDepth(-17);
+    // Production line keeps the 720-era length/position (center ~360, span 620).
+    this.add.tileSprite(360, 360, 620, 56, "conveyor-belt").setOrigin(0.5).setDepth(-17);
     this.add.tileSprite(MAP_W / 2, 620, 900, 40, "counter-desk").setOrigin(0.5).setDepth(-18);
 
     // Soft dashed factory flow along the production line (not a forced path).
-    for (const x of [180, 300, 420, 540, 660, 780]) {
+    for (const x of [140, 230, 320, 410, 500, 580]) {
       this.add.image(x, 392, "floor-dash").setScale(1.5).setAlpha(0.4).setDepth(-16.5);
     }
-    this.add.image(760, 392, "floor-flow").setScale(1.5).setAlpha(0.45).setDepth(-16.5);
+    this.add.image(560, 392, "floor-flow").setScale(1.5).setAlpha(0.45).setDepth(-16.5);
     this.add.image(MAP_W / 2, 240, "floor-dash").setScale(1.3).setAlpha(0.25).setAngle(90).setDepth(-16.5);
   }
 }
