@@ -150,6 +150,9 @@ export class UIController {
       </article>`;
     }).join("");
     this.byId("unlock-tutorial").classList.remove("is-hidden");
+    this.byId("game-screen").classList.add("is-tutorial-locked");
+    // Pause kitchen so customers/patience/input wait until the player confirms.
+    this.scene?.scene.pause();
   }
 
   private closeUnlockTutorial(markSeen: boolean): void {
@@ -161,6 +164,8 @@ export class UIController {
     this.unlockTutorialOpen = false;
     this.byId("unlock-tutorial").classList.add("is-hidden");
     this.byId("unlock-tutorial-body").innerHTML = "";
+    this.byId("game-screen").classList.remove("is-tutorial-locked");
+    if (this.scene?.scene.isPaused()) this.scene.scene.resume();
   }
 
   private toggleInspect(): void {

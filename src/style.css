@@ -390,22 +390,30 @@ dt { color: #7fb9d3; font-size: .68rem; font-weight: 800; } dd { margin: 4px 0 0
 
 .unlock-tutorial {
   position: fixed;
-  right: 22px;
-  bottom: 22px;
+  inset: 0;
   z-index: 25;
-  width: min(360px, calc(100vw - 28px));
-  pointer-events: none;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  width: auto;
+  background: rgba(62, 42, 24, .62);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  pointer-events: auto;
 }
 .unlock-tutorial.is-hidden { display: none !important; }
 .unlock-tutorial-card {
   pointer-events: auto;
   display: grid;
   gap: 12px;
-  padding: 18px;
-  border-radius: 14px;
+  width: min(420px, calc(100vw - 32px));
+  max-height: min(80vh, 560px);
+  overflow: auto;
+  padding: 22px;
+  border-radius: 16px;
   border: 3px solid #8a5a32;
   background: linear-gradient(160deg, #fff4dc, #f0d2a0);
-  box-shadow: 0 8px 0 #8a5a32;
+  box-shadow: 0 10px 0 #8a5a32, 0 18px 40px rgba(40, 24, 12, .35);
   color: #3e2a18;
   animation: unlock-pop .35s ease-out;
 }
@@ -434,8 +442,12 @@ dt { color: #7fb9d3; font-size: .68rem; font-weight: 800; } dd { margin: 4px 0 0
 .unlock-item small { color: #7a5534; font-size: .68rem; line-height: 1.35; }
 .unlock-tutorial-card .primary { width: 100%; }
 @keyframes unlock-pop {
-  from { opacity: 0; transform: translateY(14px) scale(.96); }
+  from { opacity: 0; transform: translateY(10px) scale(.96); }
   to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.game-screen.is-tutorial-locked .topbar,
+.game-screen.is-tutorial-locked .game-layout {
+  pointer-events: none;
 }
 
 @media (max-width: 1050px) { .game-layout, .game-layout.kitchen-layout--wide { grid-template-columns: 210px minmax(480px, 1fr); } }
