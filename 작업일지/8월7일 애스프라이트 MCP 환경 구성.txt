@@ -20,4 +20,5 @@
 - Cloud Agents 대시보드 MCP 드롭다운에도 동일 stdio 서버를 추가해야 Cloud Agent에서 도구가 노출됨
 - LibreSprite는 Aseprite CLI 호환 대체이며, Lua --script는 제한적(CLI export 권장)
 - Draft build ID(초기 실패): bld-20260807-5a0e30ee-78fe-4692-9b34-f9240e4a9797
+- Draft build ID(성공): bld-20260807-139d6bde-c1aa-4522-8443-5777555e545a
 - Environment ID: a17cd9ce-91f7-11f1-ba66-0e7d0216e441
