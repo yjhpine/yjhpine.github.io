@@ -1,0 +1,7 @@
+결과 프리뷰 16장 사진 팩 파이프라인
+
+- previewModel: assetKey(스타일×모자×구도×선명) + imageSrc
+- renderPreview: PNG 표시, QC/품질은 CSS 오버레이
+- 이미지 로드 실패 시 기존 절차적 고양이 폴백
+- public/assets/art/previews/ 플레이스홀더 16장 + README + manifest
+- scripts/generate-preview-placeholders.py

@@ -1,0 +1,71 @@
+{
+  "count": 16,
+  "size": 256,
+  "note": "Replace placeholders with final art. Keep filenames. QC + quality band are CSS overlays.",
+  "assets": [
+    {
+      "key": "cat-plain-hat-offset-soft",
+      "file": "cat-plain-hat-offset-soft.png"
+    },
+    {
+      "key": "cat-plain-hat-offset-sharp",
+      "file": "cat-plain-hat-offset-sharp.png"
+    },
+    {
+      "key": "cat-plain-hat-center-soft",
+      "file": "cat-plain-hat-center-soft.png"
+    },
+    {
+      "key": "cat-plain-hat-center-sharp",
+      "file": "cat-plain-hat-center-sharp.png"
+    },
+    {
+      "key": "cat-plain-no-hat-offset-soft",
+      "file": "cat-plain-no-hat-offset-soft.png"
+    },
+    {
+      "key": "cat-plain-no-hat-offset-sharp",
+      "file": "cat-plain-no-hat-offset-sharp.png"
+    },
+    {
+      "key": "cat-plain-no-hat-center-soft",
+      "file": "cat-plain-no-hat-center-soft.png"
+    },
+    {
+      "key": "cat-plain-no-hat-center-sharp",
+      "file": "cat-plain-no-hat-center-sharp.png"
+    },
+    {
+      "key": "cat-fairytale-hat-offset-soft",
+      "file": "cat-fairytale-hat-offset-soft.png"
+    },
+    {
+      "key": "cat-fairytale-hat-offset-sharp",
+      "file": "cat-fairytale-hat-offset-sharp.png"
+    },
+    {
+      "key": "cat-fairytale-hat-center-soft",
+      "file": "cat-fairytale-hat-center-soft.png"
+    },
+    {
+      "key": "cat-fairytale-hat-center-sharp",
+      "file": "cat-fairytale-hat-center-sharp.png"
+    },
+    {
+      "key": "cat-fairytale-no-hat-offset-soft",
+      "file": "cat-fairytale-no-hat-offset-soft.png"
+    },
+    {
+      "key": "cat-fairytale-no-hat-offset-sharp",
+      "file": "cat-fairytale-no-hat-offset-sharp.png"
+    },
+    {
+      "key": "cat-fairytale-no-hat-center-soft",
+      "file": "cat-fairytale-no-hat-center-soft.png"
+    },
+    {
+      "key": "cat-fairytale-no-hat-center-sharp",
+      "file": "cat-fairytale-no-hat-center-sharp.png"
+    }
+  ]
+}

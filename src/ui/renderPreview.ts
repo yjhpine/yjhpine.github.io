@@ -16,35 +16,46 @@ export function renderPreview(result: GenerationResult): string {
 
   return `
     <div class="preview-stage">
-      <div class="${model.classes.join(" ")}" aria-label="${model.previewKey}">
+      <div class="${model.classes.join(" ")}" aria-label="${model.previewKey}" data-preview-asset="${model.assetKey}">
+        <img
+          class="preview-photo"
+          src="${model.imageSrc}"
+          alt=""
+          width="256"
+          height="256"
+          decoding="async"
+          data-fallback="procedural"
+        />
+        <div class="preview-procedural" aria-hidden="true">
+          <span class="preview-sky"></span>
+          <span class="preview-hill preview-hill-a"></span>
+          <span class="preview-hill preview-hill-b"></span>
+          <span class="sun"></span>
+          <span class="moon"></span>
+          <span class="star star-a"></span>
+          <span class="star star-b"></span>
+          <span class="star star-c"></span>
+          <span class="sparkle sparkle-a"></span>
+          <span class="sparkle sparkle-b"></span>
+          <span class="cloud cloud-a"></span>
+          <span class="cloud cloud-b"></span>
+          <span class="ground"></span>
+          <span class="cat">
+            <i class="ear left"></i>
+            <i class="ear right"></i>
+            <i class="body"></i>
+            <i class="face"></i>
+            <i class="eye left"></i>
+            <i class="eye right"></i>
+            <i class="nose"></i>
+            <i class="whisker w1"></i>
+            <i class="whisker w2"></i>
+            <i class="whisker w3"></i>
+            <i class="whisker w4"></i>
+            <i class="hat"></i>
+          </span>
+        </div>
         <span class="preview-grain" aria-hidden="true"></span>
-        <span class="preview-sky" aria-hidden="true"></span>
-        <span class="preview-hill preview-hill-a" aria-hidden="true"></span>
-        <span class="preview-hill preview-hill-b" aria-hidden="true"></span>
-        <span class="sun" aria-hidden="true"></span>
-        <span class="moon" aria-hidden="true"></span>
-        <span class="star star-a" aria-hidden="true"></span>
-        <span class="star star-b" aria-hidden="true"></span>
-        <span class="star star-c" aria-hidden="true"></span>
-        <span class="sparkle sparkle-a" aria-hidden="true"></span>
-        <span class="sparkle sparkle-b" aria-hidden="true"></span>
-        <span class="cloud cloud-a" aria-hidden="true"></span>
-        <span class="cloud cloud-b" aria-hidden="true"></span>
-        <span class="ground" aria-hidden="true"></span>
-        <span class="cat" aria-hidden="true">
-          <i class="ear left"></i>
-          <i class="ear right"></i>
-          <i class="body"></i>
-          <i class="face"></i>
-          <i class="eye left"></i>
-          <i class="eye right"></i>
-          <i class="nose"></i>
-          <i class="whisker w1"></i>
-          <i class="whisker w2"></i>
-          <i class="whisker w3"></i>
-          <i class="whisker w4"></i>
-          <i class="hat"></i>
-        </span>
         <span class="qc-stamp" aria-hidden="true">QC</span>
         <span class="result-label">${model.label}</span>
       </div>
