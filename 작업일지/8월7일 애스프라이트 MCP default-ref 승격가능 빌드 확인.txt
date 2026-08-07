@@ -1,0 +1,14 @@
+제목: 8월7일 애스프라이트 MCP default-ref 승격가능 빌드 확인
+
+작업 내용:
+1. PR #5 브랜치를 main에 머지 (`921fdd3`)
+2. refs 없이(default-ref) environment build 재실행
+3. 승격 가능 조건 확인:
+   - 이전 feature-ref 빌드는 "cannot be promoted" 경고 발생
+   - default-ref 빌드는 해당 경고 없이 SUCCEEDED
+
+결과:
+- Environment ID: a17cd9ce-91f7-11f1-ba66-0e7d0216e441
+- Promotable draft build(성공): bld-20260807-acc5de9d-02d8-4530-ac30-0502d2a4d7be
+- 상태: SUCCEEDED (default branch 기준, 대시보드에서 Active로 승격 가능)
+- Agent trigger 빌드는 draft로 생성되므로 Active 승격은 Cloud Agents 대시보드에서 수동 진행
