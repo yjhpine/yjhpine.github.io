@@ -427,9 +427,7 @@ export class KitchenScene extends Phaser.Scene {
       const dropY = Phaser.Math.Clamp(this.player.y + this.facingY * 28, 100, MAP_H - 40);
       result = this.session.dropToFloor(dropX, dropY);
     } else {
-      this.spawnFx("fx-error", this.player.x, this.player.y - 24, 1.6);
-      this.shakeAt(this.player);
-      this.eventBus.emit("notice", { message: "근처에 상호작용할 대상이 없습니다.", tone: "info" });
+      // Nothing nearby and empty hands: no error FX (only wrong-target interactions react).
       return;
     }
     this.playActionFeedback(result, target);
