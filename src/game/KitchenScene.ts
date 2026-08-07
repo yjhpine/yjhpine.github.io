@@ -213,7 +213,7 @@ export class KitchenScene extends Phaser.Scene {
     this.playerSprite = this.add.sprite(0, 0, "cat-idle", 0).setOrigin(0.5, 0.7);
     this.playerSprite.setScale(PLAYER_SCALE);
     this.playerSprite.setFlipX(false);
-    this.carryIcon = this.add.image(0, -36, "item-order").setScale(1.4).setVisible(false);
+    this.carryIcon = this.add.image(18, -4, "item-order").setScale(1.25).setVisible(false);
     this.player = this.add.container(MAP_W / 2, MAP_H * 0.62, [this.playerSprite, this.carryIcon]);
     this.player.setDepth(5);
     this.playPlayerAnim("player-idle");
@@ -482,7 +482,7 @@ export class KitchenScene extends Phaser.Scene {
     const message = result.message ?? "";
     if (message.includes("집어") || message.includes("집었") || message.includes("완성 이미지")) {
       this.spawnFx("fx-pickup", this.player.x, this.player.y - 28, 1.8);
-      this.tweens.add({ targets: this.carryIcon, scaleX: 1.9, scaleY: 1.9, duration: 90, yoyo: true });
+      this.tweens.add({ targets: this.carryIcon, scaleX: 1.55, scaleY: 1.55, duration: 90, yoyo: true });
       return;
     }
     if (message.includes("입력기") || message.includes("슬롯") || message.includes("꽂") || message.includes("바꿨")) {
@@ -1031,6 +1031,25 @@ export class KitchenScene extends Phaser.Scene {
       return;
     }
     this.carryIcon.setTexture(carrySpriteKey(carry)).setVisible(true);
+    this.carryIcon.setScale(1.25);
+
+    // Hold at hand/front of body, not above the head.
+    const facingSide = this.facingX !== 0 ? Math.sign(this.facingX) : (this.playerSprite.flipX ? 1 : -1);
+    let x = facingSide * 18;
+    let y = -4;
+    if (Math.abs(this.facingY) > Math.abs(this.facingX)) {
+      // Vertical facing: keep slightly to the visible hand side, nudge forward/back.
+      x = facingSide * 14;
+      y = this.facingY > 0 ? 6 : -12;
+    }
+    this.carryIcon.setPosition(x, y);
+
+    // Facing up: tuck item behind the cat so it reads as held, not floating on the face.
+    if (this.facingY < 0 && Math.abs(this.facingY) >= Math.abs(this.facingX)) {
+      this.player.sendToBack(this.carryIcon);
+    } else {
+      this.player.bringToTop(this.carryIcon);
+    }
   }
 
   private spawnFx(key: string, x: number, y: number, scale = 2): void {
