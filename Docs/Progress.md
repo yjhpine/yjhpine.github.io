@@ -2,6 +2,7 @@
 
 ## 2026-08-07
 
+- UX 시각적 피드백 패스 내용을 Cozy 리파인에 통합 병합 (별도 UX 브랜치 작업일지/생성 스크립트 유지).
 - Cozy Pixel Art 전면 리파인: `generate-cozy-factory-art.py`로 스테이션/아이템/칩/손님/바닥점선/UX 크롬 재제작. ghost 투입·produce progress/COMPLETE·HUD carry 아이콘 연결. Cat_*·세션 로직·라이프/1-5 튜토리얼 UI는 미추가.
 - Aseprite MCP(`@iborymagic/aseprite-mcp`) + LibreSprite CLI로 스테이션/칩 .ase 아카이브·메타데이터 생성.
 - 손님 2프레임 idle, 생산 spark 4프레임, 카운터 벨 링 시트를 Phaser에 연결.
