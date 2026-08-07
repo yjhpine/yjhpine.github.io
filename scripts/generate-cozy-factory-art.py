@@ -507,10 +507,11 @@ def make_ui() -> None:
     put(im, 26, 17, OUTLINE, 1, 3)
     save("ui/prompt_bubble.png", im)
 
-    im = img(52, 8)
-    put(im, 0, 0, OUTLINE, 52, 8)
-    put(im, 1, 1, DARK, 50, 6)
-    put(im, 2, 2, GREEN, 48, 4)
+    # Empty track only — fill is drawn live so depletion is visible.
+    im = img(52, 10)
+    put(im, 0, 0, OUTLINE, 52, 10)
+    put(im, 1, 1, DARK, 50, 8)
+    put(im, 2, 2, (90, 78, 68, 255), 48, 6)
     save("ui/patience_frame.png", im)
 
     # Z keycap
@@ -525,11 +526,24 @@ def make_ui() -> None:
     save("ui/keycap_z.png", im)
     save("ui/interact_hint.png", im.copy())
 
+    # 4-way corner brackets forming a rectangle (not identical L shapes).
     im = img(32, 32)
-    for x, y in ((0, 0), (24, 0), (0, 24), (24, 24)):
-        put(im, x, y, YELLOW, 8, 2)
-        put(im, x, y, YELLOW, 2, 8)
-        put(im, x + 1, y + 1, WHITE, 2, 1)
+    # top-left ┌
+    put(im, 0, 0, YELLOW, 8, 2)
+    put(im, 0, 0, YELLOW, 2, 8)
+    put(im, 1, 1, WHITE, 2, 1)
+    # top-right ┐
+    put(im, 24, 0, YELLOW, 8, 2)
+    put(im, 30, 0, YELLOW, 2, 8)
+    put(im, 29, 1, WHITE, 2, 1)
+    # bottom-left └
+    put(im, 0, 30, YELLOW, 8, 2)
+    put(im, 0, 24, YELLOW, 2, 8)
+    put(im, 1, 30, WHITE, 2, 1)
+    # bottom-right ┘
+    put(im, 24, 30, YELLOW, 8, 2)
+    put(im, 30, 24, YELLOW, 2, 8)
+    put(im, 29, 30, WHITE, 2, 1)
     save("ui/highlight_frame.png", im)
 
     # soft glow

@@ -930,11 +930,12 @@ export class KitchenScene extends Phaser.Scene {
         const sprite = this.add.sprite(0, 10, `customer-${kind}-idle`, 0).setScale(2.2).setOrigin(0.5, 0.85);
         sprite.play(`customer-${kind}-idle-anim`, true);
         const promptBubble = this.createPromptBubble(customer.prompt);
-        const barBg = this.add.image(0, 30, "patience-frame").setScale(1);
-        const bar = this.add.rectangle(-22, 30, 44, 4, 0x60ba6e).setOrigin(0, 0.5);
+        const barBg = this.add.image(0, 34, "patience-frame").setScale(1.15);
+        const barEmpty = this.add.rectangle(0, 34, 48, 6, 0x5a4e44).setOrigin(0.5);
+        const bar = this.add.rectangle(-24, 34, 48, 6, 0x60ba6e).setOrigin(0, 0.5);
         const orderIcon = this.add.image(18, -8, "order-icon-small").setScale(1.4);
         const sweat = this.add.image(-18, -6, "customer-sweat").setScale(1.5).setVisible(false);
-        view = this.add.container(x, y, [sprite, promptBubble, barBg, bar, orderIcon, sweat]);
+        view = this.add.container(x, y, [sprite, promptBubble, barBg, barEmpty, bar, orderIcon, sweat]);
         view.setData("kind", kind);
         view.setDepth(3);
         this.customerViews.set(customer.id, view);
@@ -944,15 +945,20 @@ export class KitchenScene extends Phaser.Scene {
       const moodKind = (view.getData("kind") as (typeof CUSTOMER_KINDS)[number]) ?? kind;
       const promptBubble = view.list[1] as Phaser.GameObjects.Container;
       this.updatePromptBubble(promptBubble, customer.prompt, !customer.orderTaken);
-      const bar = view.list[3] as Phaser.GameObjects.Rectangle;
-      const orderIcon = view.list[4] as Phaser.GameObjects.Image;
-      const sweat = view.list[5] as Phaser.GameObjects.Image;
+      const bar = view.list[4] as Phaser.GameObjects.Rectangle;
+      const orderIcon = view.list[5] as Phaser.GameObjects.Image;
+      const sweat = view.list[6] as Phaser.GameObjects.Image;
       const sprite = view.list[0] as Phaser.GameObjects.Sprite;
       const ratio = customer.patience / customer.maxPatience;
-      bar.setSize(Math.max(2, 44 * ratio), 4);
+      // Deplete from the right so the empty dark track reads as remaining wait time.
+      const width = Math.max(1, 48 * ratio);
+      bar.setSize(width, 6);
+      bar.setPosition(-24, 34);
       if (ratio < 0.25) bar.setFillStyle(0xdc5454);
       else if (ratio < 0.5) bar.setFillStyle(0xf0b040);
       else bar.setFillStyle(0x60ba6e);
+      // Pulse when critically low so decrease is noticeable.
+      bar.setAlpha(ratio < 0.25 ? 0.65 + Math.sin(this.time.now / 120) * 0.35 : 1);
       orderIcon.setVisible(!customer.orderTaken);
       if (!customer.orderTaken) orderIcon.y = -8 + Math.sin(this.time.now / 250) * 2;
       sweat.setVisible(ratio < 0.35);
