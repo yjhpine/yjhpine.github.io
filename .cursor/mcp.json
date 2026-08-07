@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "aseprite-mcp": {
+      "command": "npx",
+      "args": ["-y", "@iborymagic/aseprite-mcp"]
+    }
+  }
+}

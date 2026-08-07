@@ -1,0 +1,18 @@
+제목: 8월7일 애스프라이트 MCP 환경 구성
+
+작업 내용:
+1. Cursor Cloud Agent용 `.cursor/environment.json` 추가
+   - install: LibreSprite CLI 래퍼 설치 + npm install + typecheck/test
+   - terminals: Vite 개발 서버(5173)
+2. `.cursor/mcp.json`에 `@iborymagic/aseprite-mcp` stdio 서버 등록
+3. `scripts/setup-aseprite-cli.sh` 추가
+   - LibreSprite AppImage 추출 후 `~/.local/bin/aseprite` 래퍼 생성
+4. `AGENTS.md`에 Cloud/MCP 사용 안내 추가
+
+검증:
+- npm install / typecheck / test / build 통과
+- LibreSprite `--version` 및 aseprite 래퍼 동작 확인
+
+참고:
+- Cloud Agents 대시보드 MCP 드롭다운에도 동일 stdio 서버를 추가해야 Cloud Agent에서 도구가 노출됨
+- LibreSprite는 Aseprite CLI 호환 대체이며, 일부 Lua API는 공식 Aseprite와 다를 수 있음

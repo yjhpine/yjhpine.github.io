@@ -1,0 +1,17 @@
+{
+  "name": "애스프라이트 MCP",
+  "install": "bash scripts/setup-aseprite-cli.sh && npm install && npx -y @iborymagic/aseprite-mcp --help >/dev/null 2>&1 || true && npm run typecheck && npm run test",
+  "terminals": [
+    {
+      "name": "vite-dev",
+      "command": "npm run dev -- --host 0.0.0.0 --port 5173",
+      "description": "AI Factory Phaser/Vite 개발 서버 (http://localhost:5173)"
+    }
+  ],
+  "ports": [
+    {
+      "name": "vite-dev",
+      "port": 5173
+    }
+  ]
+}
