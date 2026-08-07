@@ -39,7 +39,7 @@ const DASH_DURATION = 0.12;
 const DASH_COOLDOWN = 0.55;
 const INTERACT_RANGE = 70;
 const CUE_RANGE = 160;
-const MAP_W = 720;
+const MAP_W = 960;
 const MAP_H = 720;
 const PLAYER_SCALE = 3;
 const PLAYER_FRAME = 32;
@@ -220,13 +220,19 @@ export class KitchenScene extends Phaser.Scene {
     this.highlight = this.add.image(0, 0, "highlight-frame").setScale(2.4).setVisible(false).setDepth(6);
     this.interactHint = this.add.image(0, 0, "interact-hint").setScale(1.5).setVisible(false).setDepth(7);
     this.guideArrow = this.add.image(0, 0, "guide-arrow").setScale(1.8).setVisible(false).setDepth(6.5);
-    this.produceSpark = this.add.sprite(520, 318, "produce-spark", 0).setScale(2).setVisible(false).setDepth(4);
-    this.produceReadyMark = this.add.image(520, 318, "fx-ready").setScale(2).setVisible(false).setDepth(4);
-    this.produceProgressFrame = this.add.image(520, 308, "progress-frame").setScale(2).setVisible(false).setDepth(4);
-    this.produceProgressFill = this.add.image(496, 308, "progress-fill").setOrigin(0, 0.5).setScale(2).setVisible(false).setDepth(4.1);
-    this.completeBadge = this.add.image(520, 300, "complete-badge").setScale(1.6).setVisible(false).setDepth(8);
-    this.outputProductPop = this.add.image(640, 330, "item-product").setScale(1.8).setVisible(false).setDepth(4);
-    this.counterBell = this.add.sprite(560, 78, "counter-bell", 0).setScale(2).setDepth(2);
+    const produceZone = this.zones.find((zone) => zone.target.kind === "produce");
+    const outputZone = this.zones.find((zone) => zone.target.kind === "output");
+    const produceX = produceZone?.x ?? 680;
+    const produceY = produceZone?.y ?? 360;
+    const outputX = outputZone?.x ?? 850;
+    const outputY = outputZone?.y ?? 360;
+    this.produceSpark = this.add.sprite(produceX, produceY - 42, "produce-spark", 0).setScale(2).setVisible(false).setDepth(4);
+    this.produceReadyMark = this.add.image(produceX, produceY - 42, "fx-ready").setScale(2).setVisible(false).setDepth(4);
+    this.produceProgressFrame = this.add.image(produceX, produceY - 52, "progress-frame").setScale(2).setVisible(false).setDepth(4);
+    this.produceProgressFill = this.add.image(produceX - 24, produceY - 52, "progress-fill").setOrigin(0, 0.5).setScale(2).setVisible(false).setDepth(4.1);
+    this.completeBadge = this.add.image(produceX, produceY - 60, "complete-badge").setScale(1.6).setVisible(false).setDepth(8);
+    this.outputProductPop = this.add.image(outputX, outputY - 30, "item-product").setScale(1.8).setVisible(false).setDepth(4);
+    this.counterBell = this.add.sprite(MAP_W * 0.72, 78, "counter-bell", 0).setScale(2).setDepth(2);
 
     const keyboard = this.input.keyboard!;
     this.cursors = keyboard.createCursorKeys();
@@ -804,17 +810,17 @@ export class KitchenScene extends Phaser.Scene {
 
   private buildStations(): void {
     this.zones = [
-      { target: { kind: "input" }, x: 90, y: 360, w: 100, h: 70, label: "입력기" },
-      { target: { kind: "slot", index: 0 }, x: 210, y: 360, w: 78, h: 70, label: "슬롯1" },
-      { target: { kind: "slot", index: 1 }, x: 310, y: 360, w: 78, h: 70, label: "슬롯2" },
-      { target: { kind: "slot", index: 2 }, x: 410, y: 360, w: 78, h: 70, label: "슬롯3" },
-      { target: { kind: "produce" }, x: 520, y: 360, w: 88, h: 70, label: "생산" },
-      { target: { kind: "output" }, x: 640, y: 360, w: 100, h: 70, label: "출구" },
+      { target: { kind: "input" }, x: 110, y: 360, w: 100, h: 70, label: "입력기" },
+      { target: { kind: "slot", index: 0 }, x: 260, y: 360, w: 78, h: 70, label: "슬롯1" },
+      { target: { kind: "slot", index: 1 }, x: 390, y: 360, w: 78, h: 70, label: "슬롯2" },
+      { target: { kind: "slot", index: 2 }, x: 520, y: 360, w: 78, h: 70, label: "슬롯3" },
+      { target: { kind: "produce" }, x: 680, y: 360, w: 88, h: 70, label: "생산" },
+      { target: { kind: "output" }, x: 850, y: 360, w: 100, h: 70, label: "출구" },
     ];
 
     const shelfModules = ["image-maker", "style-processor", "ban-list", "composition-planner", "sharpener", "quality-checker"];
     shelfModules.forEach((moduleId, index) => {
-      const x = 70 + index * 116;
+      const x = 100 + index * 150;
       this.zones.push({
         target: { kind: "shelf", moduleId },
         x,
@@ -915,7 +921,7 @@ export class KitchenScene extends Phaser.Scene {
         label.setText(producing ? `생산 ${progressPct}%` : canProduce ? "READY" : "생산");
         lamp?.setTexture(producing ? "status-lamp-busy" : canProduce ? "status-lamp-ready" : "status-lamp-off");
         if (this.produceSpark) {
-          this.produceSpark.setVisible(producing);
+          this.produceSpark.setPosition(zone.x, zone.y - 42).setVisible(producing);
           if (producing) {
             if (this.produceSpark.anims.currentAnim?.key !== "produce-spark-play") {
               this.produceSpark.play("produce-spark-play", true);
@@ -994,7 +1000,7 @@ export class KitchenScene extends Phaser.Scene {
     }
     waiting.forEach((customer, index) => {
       let view = this.customerViews.get(customer.id);
-      const x = 150 + index * 140;
+      const x = 280 + index * 180;
       const y = 110;
       const kind = CUSTOMER_KINDS[index % CUSTOMER_KINDS.length]!;
       if (!view) {
@@ -1185,15 +1191,15 @@ export class KitchenScene extends Phaser.Scene {
     this.add.tileSprite(0, 0, MAP_W, MAP_H, "floor-tile").setOrigin(0, 0).setDepth(-20);
     this.add.tileSprite(0, 0, MAP_W, 28, "wall-rim").setOrigin(0, 0).setDepth(-19);
     this.add.tileSprite(0, MAP_H - 28, MAP_W, 28, "wall-rim").setOrigin(0, 0).setDepth(-19);
-    this.add.tileSprite(MAP_W / 2, 88, 620, 36, "counter-desk").setOrigin(0.5).setDepth(-18);
-    this.add.tileSprite(MAP_W / 2, 360, 620, 56, "conveyor-belt").setOrigin(0.5).setDepth(-17);
-    this.add.tileSprite(MAP_W / 2, 620, 660, 40, "counter-desk").setOrigin(0.5).setDepth(-18);
+    this.add.tileSprite(MAP_W / 2, 88, 860, 36, "counter-desk").setOrigin(0.5).setDepth(-18);
+    this.add.tileSprite(MAP_W / 2, 360, 860, 56, "conveyor-belt").setOrigin(0.5).setDepth(-17);
+    this.add.tileSprite(MAP_W / 2, 620, 900, 40, "counter-desk").setOrigin(0.5).setDepth(-18);
 
     // Soft dashed factory flow along the production line (not a forced path).
-    for (const x of [140, 230, 320, 410, 500, 580]) {
+    for (const x of [180, 300, 420, 540, 660, 780]) {
       this.add.image(x, 392, "floor-dash").setScale(1.5).setAlpha(0.4).setDepth(-16.5);
     }
-    this.add.image(560, 392, "floor-flow").setScale(1.5).setAlpha(0.45).setDepth(-16.5);
+    this.add.image(760, 392, "floor-flow").setScale(1.5).setAlpha(0.45).setDepth(-16.5);
     this.add.image(MAP_W / 2, 240, "floor-dash").setScale(1.3).setAlpha(0.25).setAngle(90).setDepth(-16.5);
   }
 }

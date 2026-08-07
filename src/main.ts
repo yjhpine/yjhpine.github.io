@@ -11,10 +11,10 @@ const game = new Phaser.Game({
   type: Phaser.CANVAS,
   parent: "game-canvas",
   backgroundColor: "#d6a86a",
-  width: 720,
+  width: 960,
   height: 720,
   scene: [kitchenScene],
-  scale: { mode: Phaser.Scale.FIT, width: 720, height: 720, autoCenter: Phaser.Scale.CENTER_BOTH },
+  scale: { mode: Phaser.Scale.FIT, width: 960, height: 720, autoCenter: Phaser.Scale.CENTER_BOTH },
   render: { antialias: true, pixelArt: true },
 });
 
