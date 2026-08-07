@@ -903,8 +903,8 @@ export class KitchenScene extends Phaser.Scene {
           body.setAlpha(0.55);
           label.setText("잠김");
         } else if (!inStock) {
-          body.setTexture("station-module-shelf");
-          body.setAlpha(0.7);
+          body.setTexture(spriteKey);
+          body.setAlpha(0.28);
           label.setText("없음");
         } else {
           body.setTexture(spriteKey);
