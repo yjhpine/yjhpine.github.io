@@ -37,8 +37,10 @@ npm run build
 }
 ```
 
-- Install script places `~/.local/bin/aseprite` (LibreSprite wrapper). Export/sheet CLI tools work; some Aseprite-only Lua APIs may differ.
-- For a licensed Aseprite binary, put it on PATH ahead of `~/.local/bin` or replace the wrapper.
+- Install script places `~/.local/bin/aseprite` and `/usr/local/bin/aseprite` (LibreSprite wrapper).
+- Verified: PNG↔`.ase` convert, sprite sheet/metadata export (`--sheet` / `--data`).
+- LibreSprite Lua (`--script`) is limited vs official Aseprite; prefer CLI export tools for automation.
+- For a licensed Aseprite binary, put it on PATH ahead of the wrapper (or replace `/usr/local/bin/aseprite`).
 
 ### Sprite assets
 
