@@ -69,6 +69,11 @@ h1 { font-size: clamp(2.6rem, 8vw, 5.2rem); margin: 20px 0 10px; letter-spacing:
 .topbar > div { display: flex; align-items: center; gap: 10px; }
 .top-actions { flex-wrap: wrap; justify-content: flex-end; }
 .order-step, .factory-status { color: #6a4a2e; font-size: .85rem; font-weight: 700; }
+.carry-status { display: inline-flex; align-items: center; gap: 6px; min-width: 7.5rem; }
+.carry-icon { width: 22px; height: 22px; image-rendering: pixelated; object-fit: contain; flex: 0 0 auto; }
+.carry-icon.is-hidden { display: none; }
+.tutorial-message { margin: 0; padding: 8px 16px; color: #3e2a18; background: #f7d047; border: 2px solid #8a5a32; border-radius: 10px; font-size: .85rem; font-weight: 650; display: grid; gap: 8px; }
+.tutorial-flow { image-rendering: pixelated; width: 128px; height: 40px; }
 .credits { color: #b07a00; font-weight: 800; white-space: nowrap; }
 .vram-status.is-over { color: #dc5454; font-weight: 800; }
 .game-layout {
@@ -88,7 +93,6 @@ h1 { font-size: clamp(2.6rem, 8vw, 5.2rem); margin: 20px 0 10px; letter-spacing:
 .order-card p { margin: 0; color: #6a4a2e; font-size: .9rem; }
 .eyebrow { color: #b07a00; font-weight: 800; letter-spacing: .08em; font-size: .68rem; text-transform: uppercase; }
 .production { white-space: nowrap; }
-.tutorial-message { margin: 0; padding: 8px 16px; color: #3e2a18; background: #f7d047; border: 2px solid #8a5a32; border-radius: 10px; font-size: .85rem; font-weight: 650; }
 .game-canvas {
   min-height: 560px;
   aspect-ratio: 1 / 1;

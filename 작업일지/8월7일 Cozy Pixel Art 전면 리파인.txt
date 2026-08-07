@@ -1,0 +1,44 @@
+제목: 8월7일 Cozy Pixel Art 전면 리파인
+
+==================================================
+1. 작업 요약
+==================================================
+레퍼런스급 cozy/상세 픽셀아트로 월드·아이템·손님·모듈·UX 크롬을
+전면 재제작하고, 기존 Z/크레딧/VRAM/텍스트 튜토리얼 시스템에 맞춰
+고스트 투입·점선 동선·생산 바/COMPLETE 등을 연결했다.
+
+플레이어 Cat_* 및 KitchenSession 핵심 로직은 미변경.
+라이프 HUD·E키·튜토리얼 1/5 신규 UI는 추가하지 않음.
+
+==================================================
+2. 새로 제작/갱신한 리소스
+==================================================
+스크립트: scripts/generate-cozy-factory-art.py
+
+- environment: floor_tile, floor_dash, floor_flow, wall/counter/conveyor/decor
+- stations: input/slot/produce(idle·busy·done)/output/shelf (셰이딩·램프·버튼 강화)
+- items: 클립 주문서, 프레임 폴라로이드, soft shadow
+- modules: 6칩 카트리지 실루엣 + 색/아이콘
+- customers: idle + anxious 2프레임 시트
+- ui: keycap_z, soft_glow, ghost_*, progress_*, status_lamp_*, complete_badge, tutorial_flow
+- effects: fx_* + spark/bell sheets
+
+==================================================
+3. 코드 적용
+==================================================
+- KitchenScene: ghost 투입 큐, progress bar, COMPLETE 배지, 상태등,
+  soft glow+[Z], 가이드 화살표, 바닥 점선, 손님 anxious/sweat,
+  pickup/insert/success/error FX, Perfect! 크레딧 플로트
+- UIController/CSS: HUD carry 아이콘 동기화, 튜토리얼 플로우 아이콘 아트
+
+==================================================
+4. 검증
+==================================================
+- typecheck / vitest 22 / build 통과
+
+==================================================
+5. 다음 개선 후보
+==================================================
+- 스테이션 짧은 상태 프레임 애니(입력 꽂힘/슬롯 click)
+- Aseprite 아카이브 재동기화
+- 손님 기쁨 표정 전용 프레임
