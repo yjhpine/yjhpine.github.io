@@ -144,6 +144,39 @@ dt { color: #7fb9d3; font-size: .68rem; font-weight: 800; } dd { margin: 4px 0 0
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.12);
 }
 .preview.placeholder { display: grid; place-items: center; color: #68899b; background: #d8e6e9; border-style: dashed; }
+
+/* 16-image photo pack: soft/sharp baked into PNG; QC + quality band stay as overlays. */
+.preview-photo {
+  display: none;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  image-rendering: pixelated;
+  position: relative;
+  z-index: 1;
+  background: #d8c4a0;
+}
+.preview-procedural {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+.preview--photo .preview-photo { display: block; }
+.preview--photo .preview-procedural { display: none; }
+.preview--photo .preview-photo.is-missing { display: none; }
+.preview--photo.preview--procedural-fallback .preview-photo { display: none; }
+.preview--photo.preview--procedural-fallback .preview-procedural,
+.preview:not(.preview--photo) .preview-procedural { display: block; }
+.preview--photo.preview--soft .preview-photo,
+.preview--photo.preview--sharp .preview-photo { filter: none; }
+.preview--photo.preview--q-lo .preview-photo { filter: saturate(.86) contrast(.94); }
+.preview--photo.preview--q-mid .preview-photo { filter: none; }
+.preview--photo.preview--q-hi .preview-photo { filter: contrast(1.08) saturate(1.1); }
+.preview--photo .preview-grain,
+.preview--photo .qc-stamp,
+.preview--photo .result-label { z-index: 3; }
+
 .preview-sky {
   position: absolute; inset: 0 0 34% 0;
   background: linear-gradient(180deg, #7eb6d8 0%, #c8e4ef 70%, #dcecc8 100%);

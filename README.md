@@ -27,8 +27,11 @@ GitHub Pages: `https://yjhpine.github.io/`
 
 ## 결과 프리뷰
 
-- 실제 생성 모델 없이 칩 조합(태그)과 품질 점수로 절차적 이미지를 연출합니다.
-- `X`로 결과물을 열면 스타일·모자·구도·선명·검사 여부와 점수를 바로 비교할 수 있습니다.
+- 칩 조합에 따라 `public/assets/art/previews/`의 **16장 사진 팩**을 고릅니다.
+- 파일명: `cat-{plain|fairytale}-{hat|no-hat}-{offset|center}-{soft|sharp}.png`
+- QC 도장·품질(lo/mid/hi)은 CSS 오버레이. 이미지 없으면 기존 절차적 프리뷰로 폴백합니다.
+- 플레이스홀더 재생성: `python3 scripts/generate-preview-placeholders.py`
+
 
 ## 로컬 실행
 

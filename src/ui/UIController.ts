@@ -241,6 +241,7 @@ export class UIController {
           <span>${escapeHtml(carry.evaluation.summary)}</span>
         </div>
         <p class="inspect-hint">이 생산 VRAM ${carry.vramSpend} · X로 닫기</p>`;
+      bindPreviewPhotoFallbacks(body);
       return;
     }
     this.closeInspect();
@@ -351,6 +352,18 @@ function carryLabel(carry: CarryItem): string {
   if (carry.kind === "order") return "주문서 (X)";
   if (carry.kind === "moduleChip") return modulesById.get(carry.moduleId)?.displayName ?? "칩";
   return "폴라로이드 (X)";
+}
+
+function bindPreviewPhotoFallbacks(root: HTMLElement): void {
+  root.querySelectorAll<HTMLImageElement>("img.preview-photo[data-fallback]").forEach((img) => {
+    const frame = img.closest(".preview");
+    const showProcedural = () => {
+      img.classList.add("is-missing");
+      frame?.classList.add("preview--procedural-fallback");
+    };
+    img.addEventListener("error", showProcedural, { once: true });
+    if (img.complete && img.naturalWidth === 0) showProcedural();
+  });
 }
 
 function carryIconSrc(carry: CarryItem): string | null {

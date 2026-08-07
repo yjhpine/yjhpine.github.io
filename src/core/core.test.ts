@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GenerationSimulator } from "./generation/GenerationSimulator";
-import { buildPreviewModel } from "./generation/previewModel";
+import { buildPreviewModel, createPreviewAssetKey, PREVIEW_ASSET_KEYS, previewImageSrc } from "./generation/previewModel";
 import { KitchenSession } from "./kitchen/KitchenSession";
 import { produceSlowdownMultiplier, RoundScoreService } from "./kitchen/RoundScoreService";
 import { ProgressionService } from "./progression/ProgressionService";
@@ -41,6 +41,32 @@ describe("Generation preview", () => {
     expect(styled.appliedTags).toContain("style-fairytale");
   });
 
+  it("maps tags to one of 16 preview photo assets", () => {
+    expect(PREVIEW_ASSET_KEYS).toHaveLength(16);
+    const basic = createPreviewAssetKey(["generator"]);
+    expect(basic).toBe("cat-plain-hat-offset-soft");
+    const rich = createPreviewAssetKey([
+      "generator",
+      "style-fairytale",
+      "no-hat",
+      "centered-composition",
+      "sharpness",
+      "quality-inspection",
+    ]);
+    expect(rich).toBe("cat-fairytale-no-hat-center-sharp");
+    expect(PREVIEW_ASSET_KEYS).toContain(rich);
+    expect(previewImageSrc(rich)).toBe("/assets/art/previews/cat-fairytale-no-hat-center-sharp.png");
+
+    const result = simulator.simulate(
+      ordersById.get("o03")!,
+      ["order-input", "image-maker", "ban-list", "delivery-bay"],
+    );
+    const model = buildPreviewModel(result);
+    expect(model.assetKey).toBe("cat-plain-no-hat-offset-soft");
+    expect(model.imageSrc).toContain(model.assetKey);
+    expect(model.classes).toContain("preview--photo");
+  });
+
   it("builds preview classes and effect labels for the inspect UI", () => {
     const result = simulator.simulate(
       ordersById.get("o03")!,
@@ -51,6 +77,8 @@ describe("Generation preview", () => {
     expect(model.effects).toContain("모자 제거");
     const html = renderPreview(result);
     expect(html).toContain("preview--no-hat");
+    expect(html).toContain("preview-photo");
+    expect(html).toContain("/assets/art/previews/cat-plain-no-hat-offset-soft.png");
     expect(html).toContain("모자 제거");
     expect(html).toContain("preview-scores");
   });
