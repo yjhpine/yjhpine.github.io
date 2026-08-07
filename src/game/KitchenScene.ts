@@ -339,6 +339,12 @@ export class KitchenScene extends Phaser.Scene {
     if (carrying) this.playPlayerAnim(moving ? "player-handle-walk" : "player-handle-idle");
     else this.playPlayerAnim(moving ? "player-walk" : "player-idle");
     this.playerSprite.setFlipX(this.facingX > 0);
+    // Walk wobble: slight tilt oscillation (~-5°..5°) for a bouncy step feel.
+    if (moving) {
+      this.playerSprite.setAngle(Math.sin(this.time.now / 85) * 5);
+    } else {
+      this.playerSprite.setAngle(0);
+    }
   }
 
   private tryDash(): void {
