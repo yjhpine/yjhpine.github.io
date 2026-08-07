@@ -2,6 +2,8 @@
 
 ## 2026-08-07
 
+- 기획서 01~05를 구현된 Overcooked형 게임 기준으로 전면 개정 (`generate_plans.py` 재생성).
+- 실습형 튜토리얼 라운드 r00 추가 (단계 잠금, 인내심 스킵, 클리어 후 r01).
 - UX 시각적 피드백 패스 내용을 Cozy 리파인에 통합 병합 (별도 UX 브랜치 작업일지/생성 스크립트 유지).
 - Cozy Pixel Art 전면 리파인: `generate-cozy-factory-art.py`로 스테이션/아이템/칩/손님/바닥점선/UX 크롬 재제작. ghost 투입·produce progress/COMPLETE·HUD carry 아이콘 연결. Cat_*·세션 로직·라이프/1-5 튜토리얼 UI는 미추가.
 - Aseprite MCP(`@iborymagic/aseprite-mcp`) + LibreSprite CLI로 스테이션/칩 .ase 아카이브·메타데이터 생성.
@@ -9,6 +11,8 @@
 - Cute Pixel Art Toy Factory 그래픽 패스: `public/assets/art/**` 신규 에셋, KitchenScene/UI 적용.
 - 사진형 Box_Floor·구 factory placeholder 제거. 플레이어 Cat_*는 미수정.
 - 모듈 iconKey를 PNG 경로로 교체, DOM HUD를 골판지/스티커 톤으로 스킨.
+- 떠난 손님 관련 주문서/이미지 정리, 선반 칩 타입당 1개/라운드.
+- 모듈 해금 중앙 모달, 빈곳 Z 에러 제거, 바닥 장식 오브젝트 제거.
 
 ## 2026-08-06
 
