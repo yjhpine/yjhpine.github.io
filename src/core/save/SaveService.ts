@@ -22,19 +22,19 @@ export class SaveService {
         && Array.isArray(parsed.unlockedModuleIds)
         && typeof parsed.credits === "number"
         && typeof parsed.activeRoundId === "string") {
-        return new ProgressionService({
+        const normalized = ProgressionService.normalizeSaveData({
           version: 2,
           credits: parsed.credits,
           completedRoundIds: parsed.completedRoundIds,
           unlockedModuleIds: parsed.unlockedModuleIds,
           introducedModuleIds: Array.isArray(parsed.introducedModuleIds) ? parsed.introducedModuleIds : [],
-          tutorialStage: typeof parsed.tutorialStage === "number" ? parsed.tutorialStage : 1,
           activeRoundId: parsed.activeRoundId,
           bestRoundScores: parsed.bestRoundScores ?? {},
           upgradeLevels: parsed.upgradeLevels && typeof parsed.upgradeLevels === "object"
             ? parsed.upgradeLevels
             : {},
         });
+        return new ProgressionService(normalized);
       }
       return ProgressionService.createDefault();
     } catch {

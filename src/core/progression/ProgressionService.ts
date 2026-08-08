@@ -6,6 +6,7 @@ import {
   type UpgradeEffects,
   type UpgradeId,
 } from "../../data/upgrades";
+import { CHIP_MODULE_IDS } from "../kitchen/types";
 import type { SaveData } from "../types";
 
 export type PurchaseUpgradeResult =
@@ -22,11 +23,46 @@ export class ProgressionService {
       completedRoundIds: [],
       unlockedModuleIds: ["image-maker"],
       introducedModuleIds: [],
-      tutorialStage: 0,
       activeRoundId: "r00",
       bestRoundScores: {},
       upgradeLevels: {},
     });
+  }
+
+  /** Sanitize loaded save payloads (clamp ids, levels, credits). */
+  static normalizeSaveData(raw: SaveData): SaveData {
+    const knownRounds = new Set(rounds.map((round) => round.id));
+    const chipSet = new Set(CHIP_MODULE_IDS as readonly string[]);
+    const activeRoundId = knownRounds.has(raw.activeRoundId) ? raw.activeRoundId : "r00";
+    const completedRoundIds = [...new Set(raw.completedRoundIds.filter((id) => knownRounds.has(id)))];
+    const unlockedModuleIds = [...new Set(
+      raw.unlockedModuleIds.filter((id) => chipSet.has(id)),
+    )];
+    if (!unlockedModuleIds.includes("image-maker")) unlockedModuleIds.unshift("image-maker");
+    const introducedModuleIds = [...new Set(
+      (raw.introducedModuleIds ?? []).filter((id) => chipSet.has(id)),
+    )];
+    const bestRoundScores: Record<string, number> = {};
+    for (const [roundId, score] of Object.entries(raw.bestRoundScores ?? {})) {
+      if (!knownRounds.has(roundId) || typeof score !== "number" || !Number.isFinite(score)) continue;
+      bestRoundScores[roundId] = Math.max(0, Math.floor(score));
+    }
+    const upgradeLevels: Record<string, number> = {};
+    for (const [id, level] of Object.entries(raw.upgradeLevels ?? {})) {
+      const definition = upgradesById.get(id as UpgradeId);
+      if (!definition || typeof level !== "number" || !Number.isFinite(level)) continue;
+      upgradeLevels[id] = Math.max(0, Math.min(definition.maxLevel, Math.floor(level)));
+    }
+    return {
+      version: 2,
+      credits: Math.max(0, Math.floor(typeof raw.credits === "number" && Number.isFinite(raw.credits) ? raw.credits : 0)),
+      completedRoundIds,
+      unlockedModuleIds,
+      introducedModuleIds,
+      activeRoundId,
+      bestRoundScores,
+      upgradeLevels,
+    };
   }
 
   get snapshot(): SaveData { return structuredClone(this.data); }
@@ -39,6 +75,14 @@ export class ProgressionService {
   get upgradeEffects(): UpgradeEffects { return computeUpgradeEffects(this.data.upgradeLevels); }
 
   activateRound(roundId: string): void { this.data.activeRoundId = roundId; }
+
+  /** Merge a round's available module chips into the progression unlock set. */
+  unlockModulesForRound(roundId: string): void {
+    const round = roundsById.get(roundId);
+    if (!round) return;
+    this.data.unlockedModuleIds = [...new Set([...this.data.unlockedModuleIds, ...round.availableModuleIds])];
+  }
+
   addCredits(amount: number): void { this.data.credits += amount; }
   spendCredits(amount: number): boolean {
     if (amount < 0 || this.data.credits < amount) return false;
@@ -55,11 +99,7 @@ export class ProgressionService {
     return this.data.upgradeLevels[id] ?? 0;
   }
 
-  isUpgradeUnlocked(id: UpgradeId | string): boolean {
-    return upgradesById.has(id as UpgradeId);
-  }
-
-  /** Shop rows: unlocked upgrades first, then locked teasers. */
+  /** Shop rows for every known upgrade (buyable from the start; balance/max level gate purchase). */
   shopCatalog(): Array<{
     id: UpgradeId;
     displayName: string;
@@ -67,12 +107,9 @@ export class ProgressionService {
     level: number;
     maxLevel: number;
     nextPrice: number | undefined;
-    unlocked: boolean;
-    unlockAfterRoundId: string;
   }> {
     return upgrades.map((definition) => {
       const level = this.getUpgradeLevel(definition.id);
-      const unlocked = this.isUpgradeUnlocked(definition.id);
       const next = level < definition.maxLevel ? definition.levels[level] : undefined;
       return {
         id: definition.id,
@@ -81,8 +118,6 @@ export class ProgressionService {
         level,
         maxLevel: definition.maxLevel,
         nextPrice: next?.price,
-        unlocked,
-        unlockAfterRoundId: definition.unlockAfterRoundId,
       };
     });
   }
@@ -120,13 +155,7 @@ export class ProgressionService {
     if (firstClear) this.data.completedRoundIds.push(this.data.activeRoundId);
     this.recordBestScore(this.data.activeRoundId, score);
     this.data.credits += creditReward;
-    if (!firstClear) return;
-    const next = this.nextRoundId();
-    if (next) {
-      const round = roundsById.get(next)!;
-      this.data.unlockedModuleIds = [...new Set([...this.data.unlockedModuleIds, ...round.availableModuleIds])];
-      this.data.tutorialStage = Math.min(7, this.data.tutorialStage + 1);
-    }
+    // Next-round chip unlocks happen in unlockModulesForRound via prep advance.
   }
 
   recordBestScore(roundId: string, score: number): void {

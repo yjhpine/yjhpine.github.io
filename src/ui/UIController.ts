@@ -11,6 +11,7 @@ import type { UpgradeId } from "../data/upgrades";
 import { KitchenScene } from "../game/KitchenScene";
 import { orderAnalysisRows, productAnalysisRows } from "./analysisView";
 import { activateNextRoundForPrep } from "./prepFlow";
+import { isUiBlockingOverlay } from "./overlayGate";
 import { renderPreview } from "./renderPreview";
 
 export class UIController {
@@ -42,6 +43,7 @@ export class UIController {
   attachScene(scene: KitchenScene): void {
     if (this.scene === scene) return;
     this.scene = scene;
+    scene.setInputBlocked(() => this.isBlockingOverlay());
     scene.eventBus.on("notice", ({ message, tone }) => this.showNotice(message, tone));
     scene.eventBus.on("sessionChanged", () => {
       this.renderHud();
@@ -54,6 +56,16 @@ export class UIController {
     scene.eventBus.on("tutorialStep", ({ hint, active }) => this.onTutorialStep(hint, active));
     scene.eventBus.on("productAnalysis", () => this.openProductAnalysis());
     scene.eventBus.on("orderAnalysis", () => this.openOrderAnalysis());
+  }
+
+  isBlockingOverlay(): boolean {
+    return isUiBlockingOverlay({
+      inspectOpen: this.inspectOpen,
+      roundSummaryOpen: this.roundSummaryOpen,
+      unlockTutorialOpen: this.unlockTutorialOpen,
+      prepOpen: this.prepOpen,
+      analysisOpen: this.analysisOpen,
+    });
   }
 
   private bindDom(): void {
@@ -226,7 +238,7 @@ export class UIController {
     this.byId("unlock-tutorial").classList.add("is-hidden");
     this.byId("unlock-tutorial-body").innerHTML = "";
     this.byId("game-screen").classList.remove("is-tutorial-locked");
-    if (this.scene?.scene.isPaused()) this.scene.scene.resume();
+    this.resumeSceneIfIdle();
   }
 
   private toggleInspect(): void {
@@ -244,6 +256,7 @@ export class UIController {
     this.inspectOpen = true;
     this.renderInspect();
     this.byId("inspect-modal").classList.remove("is-hidden");
+    this.scene?.scene.pause();
     if (carry.kind === "product") this.scene?.notifyTutorialInspect();
   }
 
@@ -251,6 +264,7 @@ export class UIController {
     this.inspectOpen = false;
     this.byId("inspect-modal").classList.add("is-hidden");
     this.byId("inspect-body").innerHTML = "";
+    this.resumeSceneIfIdle();
   }
 
   private renderInspect(): void {
@@ -295,7 +309,7 @@ export class UIController {
     if (payload.breakdown && payload.passed) {
       const parts = [
         `성공 +${payload.breakdown.success}`,
-        payload.breakdown.perfect ? `완벽 +${payload.breakdown.perfect}` : null,
+        payload.breakdown.perfect ? `통과 보너스 +${payload.breakdown.perfect}` : null,
         payload.breakdown.patience ? `인내심 +${payload.breakdown.patience}` : null,
       ].filter(Boolean);
       this.showNotice(`납품 보상 ${parts.join(" · ")} = +${payload.breakdown.total}C`, "success");
@@ -320,9 +334,7 @@ export class UIController {
   private closePrep(resumeScene: boolean): void {
     this.prepOpen = false;
     this.byId("prep-modal").classList.add("is-hidden");
-    if (resumeScene && this.scene?.scene.isPaused() && !this.unlockTutorialOpen) {
-      this.scene.scene.resume();
-    }
+    if (resumeScene) this.resumeSceneIfIdle();
   }
 
   private renderPrep(): void {
@@ -419,9 +431,7 @@ export class UIController {
     this.analysisOpen = false;
     this.byId("analysis-modal").classList.add("is-hidden");
     this.byId("analysis-body").innerHTML = "";
-    if (this.scene?.scene.isPaused() && !this.unlockTutorialOpen && !this.prepOpen) {
-      this.scene.scene.resume();
-    }
+    this.resumeSceneIfIdle();
   }
 
   private onRoundFinished(stats: RoundStats): void {
@@ -452,6 +462,7 @@ export class UIController {
       this.byId<HTMLButtonElement>("next-round").hidden = !next;
       this.byId<HTMLButtonElement>("next-round").textContent = next ? "준비 타임 →" : "완료";
       this.byId("round-summary-modal").classList.remove("is-hidden");
+      this.scene?.scene.pause();
       return;
     }
     this.byId("round-summary-body").innerHTML = `
@@ -467,11 +478,22 @@ export class UIController {
     this.byId<HTMLButtonElement>("next-round").hidden = !next;
     this.byId<HTMLButtonElement>("next-round").textContent = next ? "준비 타임 →" : "모든 라운드 완료";
     this.byId("round-summary-modal").classList.remove("is-hidden");
+    this.scene?.scene.pause();
   }
 
   private closeRoundSummary(): void {
     this.roundSummaryOpen = false;
     this.byId("round-summary-modal").classList.add("is-hidden");
+    this.resumeSceneIfIdle();
+  }
+
+  /** Resume kitchen only when no pause-owning overlay remains open. */
+  private resumeSceneIfIdle(): void {
+    if (!this.scene?.scene.isPaused()) return;
+    if (this.unlockTutorialOpen || this.prepOpen || this.analysisOpen || this.roundSummaryOpen || this.inspectOpen) {
+      return;
+    }
+    this.scene.scene.resume();
   }
 
   private advanceToPrep(): void {

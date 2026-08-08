@@ -65,11 +65,7 @@ export class KitchenSession {
   ) {
     this.round = roundsById.get(roundId) ?? roundsById.get("r01")!;
     this.slots = Array.from({ length: slotCount }, () => null);
-    const unlocked = unlockedModuleIds ?? this.round.availableModuleIds;
-    this.unlockedModuleIds = unlocked.filter((id) => (CHIP_MODULE_IDS as readonly string[]).includes(id));
-    if (!this.unlockedModuleIds.includes("image-maker")) {
-      this.unlockedModuleIds = ["image-maker", ...this.unlockedModuleIds];
-    }
+    this.unlockedModuleIds = this.filterShelfModules(unlockedModuleIds ?? this.round.availableModuleIds);
     this.shelfModuleIds = [...this.unlockedModuleIds];
     this.orderQueue = buildRoundOrderQueue(this.round);
     this.upgrades = { ...upgrades };
@@ -133,11 +129,20 @@ export class KitchenSession {
   }
 
   setUnlockedModules(moduleIds: string[]): void {
-    this.unlockedModuleIds = moduleIds.filter((id) => (CHIP_MODULE_IDS as readonly string[]).includes(id));
-    if (!this.unlockedModuleIds.includes("image-maker")) {
-      this.unlockedModuleIds = ["image-maker", ...this.unlockedModuleIds];
-    }
+    this.unlockedModuleIds = this.filterShelfModules(moduleIds);
     this.shelfModuleIds = [...this.unlockedModuleIds];
+  }
+
+  /** Shelf stock = progression unlocks ∩ CHIP ids ∩ this round's available modules. */
+  private filterShelfModules(moduleIds: string[]): string[] {
+    const available = new Set(this.round.availableModuleIds);
+    const filtered = moduleIds.filter(
+      (id) => (CHIP_MODULE_IDS as readonly string[]).includes(id) && available.has(id),
+    );
+    if (!filtered.includes("image-maker")) {
+      return ["image-maker", ...filtered];
+    }
+    return filtered;
   }
 
   tick(dt: number): KitchenActionResult[] {
@@ -311,7 +316,6 @@ export class KitchenSession {
     const patienceRatio = customer.maxPatience > 0 ? customer.patience / customer.maxPatience : 0;
     const breakdown = computeDeliveryCredits({
       passed: product.evaluation.passed,
-      perfect: product.evaluation.passed,
       patienceRatio,
     });
     const reward = breakdown.total;

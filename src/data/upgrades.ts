@@ -17,8 +17,6 @@ export interface UpgradeDefinition {
   id: UpgradeId;
   displayName: string;
   description: string;
-  /** Round that must be completed before this upgrade appears in the shop. */
-  unlockAfterRoundId: string;
   /** Max purchasable level. Functional upgrades are 1. */
   maxLevel: number;
   levels: UpgradeLevelDef[];
@@ -29,7 +27,6 @@ export const upgrades: UpgradeDefinition[] = [
     id: "work-shoes",
     displayName: "작업화",
     description: "이동 속도를 올려 운반 시간을 줄입니다.",
-    unlockAfterRoundId: "r01",
     maxLevel: 3,
     levels: [
       { price: 100, effect: 0.05 },
@@ -41,7 +38,6 @@ export const upgrades: UpgradeDefinition[] = [
     id: "work-gloves",
     displayName: "작업 장갑",
     description: "집기·꽂기 상호작용 딜레이를 줄입니다.",
-    unlockAfterRoundId: "r02",
     maxLevel: 3,
     levels: [
       { price: 100, effect: 0.1 },
@@ -53,7 +49,6 @@ export const upgrades: UpgradeDefinition[] = [
     id: "coffee-machine",
     displayName: "커피머신",
     description: "손님 인내심을 늘려 응대 여유를 줍니다.",
-    unlockAfterRoundId: "r03",
     maxLevel: 3,
     levels: [
       { price: 150, effect: 0.1 },
@@ -65,7 +60,6 @@ export const upgrades: UpgradeDefinition[] = [
     id: "producer",
     displayName: "생산기 업그레이드",
     description: "생산 완료까지 대기 시간을 줄입니다.",
-    unlockAfterRoundId: "r04",
     maxLevel: 3,
     levels: [
       { price: 200, effect: 0.1 },
@@ -77,7 +71,6 @@ export const upgrades: UpgradeDefinition[] = [
     id: "chip-shelf",
     displayName: "칩 선반 확장",
     description: "라인 옆 퀵 선반으로 칩 동선을 줄입니다.",
-    unlockAfterRoundId: "r05",
     maxLevel: 1,
     levels: [{ price: 400, effect: 1 }],
   },
@@ -85,7 +78,6 @@ export const upgrades: UpgradeDefinition[] = [
     id: "analyzer",
     displayName: "분석기",
     description: "생산 결과의 조건별 일치/불일치를 보여 줍니다. 칩 이름은 알려주지 않습니다.",
-    unlockAfterRoundId: "r06",
     maxLevel: 1,
     levels: [{ price: 600, effect: 1 }],
   },
@@ -93,7 +85,6 @@ export const upgrades: UpgradeDefinition[] = [
     id: "order-analyzer",
     displayName: "주문 분석기",
     description: "주문서를 구조화해 요구 조건을 보여 줍니다. 칩 이름은 알려주지 않습니다.",
-    unlockAfterRoundId: "r06",
     maxLevel: 1,
     levels: [{ price: 800, effect: 1 }],
   },
@@ -153,19 +144,17 @@ export interface DeliveryCreditBreakdown {
 
 /**
  * Delivery credits: fail = 0.
- * Success +100, perfect (tags + min scores via evaluator) +50, patience ≥50% +20.
+ * Pass → success +100 and pass bonus +50; patience ≥50% → +20.
  */
 export function computeDeliveryCredits(options: {
   passed: boolean;
-  /** When omitted, perfect bonus applies whenever `passed` is true. */
-  perfect?: boolean;
   patienceRatio: number;
 }): DeliveryCreditBreakdown {
   if (!options.passed) {
     return { success: 0, perfect: 0, patience: 0, total: 0 };
   }
   const success = DELIVERY_SUCCESS_CREDIT;
-  const perfect = (options.perfect ?? true) ? DELIVERY_PERFECT_BONUS : 0;
+  const perfect = DELIVERY_PERFECT_BONUS;
   const patience = options.patienceRatio >= 0.5 ? DELIVERY_PATIENCE_BONUS : 0;
   return { success, perfect, patience, total: success + perfect + patience };
 }

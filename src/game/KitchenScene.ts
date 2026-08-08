@@ -69,6 +69,7 @@ const CUSTOMER_KINDS = ["rabbit", "dog", "hamster", "duck"] as const;
 export class KitchenScene extends Phaser.Scene {
   readonly eventBus = new GameEventBus<SceneEvents>();
   private session: KitchenSession | undefined;
+  private inputBlocked: () => boolean = () => false;
   private readonly tutorialGuide = new TutorialGuide();
   private player!: Phaser.GameObjects.Container;
   private playerSprite!: Phaser.GameObjects.Sprite;
@@ -252,9 +253,9 @@ export class KitchenScene extends Phaser.Scene {
     this.keyA = keyboard.addKey("A");
     this.keyS = keyboard.addKey("S");
     this.keyD = keyboard.addKey("D");
-    keyboard.on("keydown-Z", () => this.tryInteract());
+    keyboard.on("keydown-Z", () => { if (!this.isInputBlocked()) this.tryInteract(); });
     keyboard.on("keydown-X", () => this.eventBus.emit("inspectToggle", undefined));
-    keyboard.on("keydown-C", () => this.tryDash());
+    keyboard.on("keydown-C", () => { if (!this.isInputBlocked()) this.tryDash(); });
 
     this.game.events.emit("kitchen-ready", this);
   }
@@ -278,6 +279,15 @@ export class KitchenScene extends Phaser.Scene {
     this.syncPlayerAnim();
     this.emitTutorialStep();
     this.eventBus.emit("sessionChanged", undefined);
+  }
+
+  /** UI overlays (modals) call this so kitchen input stops while blocked. */
+  setInputBlocked(fn: () => boolean): void {
+    this.inputBlocked = fn;
+  }
+
+  private isInputBlocked(): boolean {
+    return this.inputBlocked();
   }
 
   /** Hot-apply purchased upgrades to movement / delay / utility stations. */
@@ -308,7 +318,7 @@ export class KitchenScene extends Phaser.Scene {
     if (!this.session) return;
     const dt = delta / 1000;
     this.dashCooldown = Math.max(0, this.dashCooldown - dt);
-    this.movePlayer(dt);
+    if (!this.isInputBlocked()) this.movePlayer(dt);
     for (const event of this.session.tick(dt)) this.handleSessionEvent(event);
     if (this.tutorialGuide.sync(this.session)) this.emitTutorialStep();
     this.syncCustomers();
@@ -389,7 +399,7 @@ export class KitchenScene extends Phaser.Scene {
   }
 
   private tryDash(): void {
-    if (!this.session || this.dashCooldown > 0 || this.dashTimer > 0) return;
+    if (!this.session || this.isInputBlocked() || this.dashCooldown > 0 || this.dashTimer > 0) return;
     const input = this.readMoveInput();
     if (input.x !== 0 || input.y !== 0) {
       const len = Math.hypot(input.x, input.y);
@@ -458,7 +468,7 @@ export class KitchenScene extends Phaser.Scene {
   }
 
   private tryInteract(): void {
-    if (!this.session || !this.interactReady) return;
+    if (!this.session || this.isInputBlocked() || !this.interactReady) return;
     this.interactReady = false;
     const delay = Math.max(40, 120 * (1 - this.upgrades.interactDelayReduction));
     this.time.delayedCall(delay, () => { this.interactReady = true; });
