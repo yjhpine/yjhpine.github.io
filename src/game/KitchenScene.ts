@@ -296,6 +296,12 @@ export class KitchenScene extends Phaser.Scene {
     return this.tutorialGuide.isEnabled() ? this.tutorialGuide.getHint() : undefined;
   }
 
+  /** Called when the player opens X inspect; advances the tutorial inspect-product step. */
+  notifyTutorialInspect(): void {
+    if (!this.session) return;
+    if (this.tutorialGuide.onInspect(this.session)) this.emitTutorialStep();
+  }
+
   getSession(): KitchenSession | undefined { return this.session; }
 
   update(_time: number, delta: number): void {
@@ -813,6 +819,10 @@ export class KitchenScene extends Phaser.Scene {
       if (this.tutorialGuide.getStep() === "wait-output") {
         return this.zones.find((zone) => zone.target.kind === "output")
           ?? this.zones.find((zone) => zone.target.kind === "produce");
+      }
+      // inspect-product: point at the player holding the image
+      if (this.tutorialGuide.getStep() === "inspect-product") {
+        return { x: this.player.x, y: this.player.y - 40 };
       }
       return undefined;
     }

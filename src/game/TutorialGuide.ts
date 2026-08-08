@@ -9,6 +9,7 @@ export type TutorialStep =
   | "produce"
   | "wait-output"
   | "pick-output"
+  | "inspect-product"
   | "deliver"
   | "done";
 
@@ -22,12 +23,13 @@ export type TutorialTarget =
 
 const STEP_HINTS: Record<TutorialStep, string> = {
   "pick-order": "손님에게 다가가 Z로 주문서를 집으세요.",
-  "insert-input": "입력기(왼쪽)에 다가가 Z로 주문서를 넣으세요.",
+  "insert-input": "입력기에 다가가 Z로 주문서를 넣으세요.",
   "pick-chip": "왼쪽 선반의 그림 제작기 칩을 Z로 집으세요.",
   "insert-slot": "빈 슬롯에 다가가 Z로 칩을 꽂으세요.",
   "produce": "생산기에서 Z를 눌러 생산을 시작하세요.",
   "wait-output": "생산이 끝날 때까지 기다리세요. 출구를 보세요.",
   "pick-output": "출구에서 Z로 완성 이미지를 집으세요.",
+  "inspect-product": "X를 눌러 완성 이미지를 확인하세요.",
   "deliver": "손님에게 다가가 Z로 이미지를 전달하세요.",
   done: "튜토리얼 완료! 본 라운드로 넘어갑니다.",
 };
@@ -96,6 +98,9 @@ export class TutorialGuide {
         return undefined;
       case "pick-output":
         return { kind: "output" };
+      case "inspect-product":
+        // X inspect only — no Z target.
+        return undefined;
       case "deliver":
         return customer ? { kind: "customer", id: customer.id } : undefined;
       default:
@@ -145,7 +150,7 @@ export class TutorialGuide {
         else if (session.getOutput().product) this.step = "pick-output";
         break;
       case "pick-output":
-        if (session.getCarry().kind === "product") this.step = "deliver";
+        if (session.getCarry().kind === "product") this.step = "inspect-product";
         break;
       case "deliver":
         if (result.delivered || session.isRoundFinished()) this.step = "done";
@@ -154,6 +159,14 @@ export class TutorialGuide {
         break;
     }
     return this.step !== before;
+  }
+
+  /** Advance when the player opens the product inspect modal (X). Tutorial-only. */
+  onInspect(session: KitchenSession): boolean {
+    if (!this.active || this.step !== "inspect-product") return false;
+    if (session.getCarry().kind !== "product") return false;
+    this.step = "deliver";
+    return true;
   }
 
   blockDrop(): boolean {

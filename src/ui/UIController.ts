@@ -244,6 +244,7 @@ export class UIController {
     this.inspectOpen = true;
     this.renderInspect();
     this.byId("inspect-modal").classList.remove("is-hidden");
+    if (carry.kind === "product") this.scene?.notifyTutorialInspect();
   }
 
   private closeInspect(): void {

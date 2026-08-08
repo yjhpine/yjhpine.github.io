@@ -1,0 +1,9 @@
+제목: 8월8일 튜토리얼 결과확인 X단계 추가
+
+변경점
+- TutorialGuide: pick-output 다음 inspect-product 단계 추가 (X로 완성 이미지 확인)
+- 확인 전 Z 전달/상호작용 차단, onInspect로 deliver 진행
+- KitchenScene 가이드 화살표가 확인 단계에서 플레이어를 가리킴
+- UIController: 제품 들여다보기 열 때 notifyTutorialInspect
+- 본 라운드(r01+)는 강제 확인 없음
+- 테스트·기획서 r00 단계 문구 갱신

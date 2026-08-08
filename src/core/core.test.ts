@@ -438,6 +438,9 @@ describe("TutorialGuide step lock", () => {
 
     const output = session.interactOutput();
     expect(guide.onAfterAction(output, session)).toBe(true);
+    expect(guide.getStep()).toBe("inspect-product");
+    expect(guide.matchesTarget(session, { kind: "customer", id: customer.id })).toBe(false);
+    expect(guide.onInspect(session)).toBe(true);
     expect(guide.getStep()).toBe("deliver");
 
     const deliver = session.deliverToCustomer(customer.id);

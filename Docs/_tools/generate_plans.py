@@ -403,8 +403,8 @@ def doc_03():
         table(
             [
                 ["규칙", "동작"],
-                ["단계 잠금", "PickOrder → InsertInput → PickChip → InsertSlot → Produce → WaitOutput → PickOutput → Deliver → Done"],
-                ["허용 상호작용", "현재 단계 목표에만 Z 허용. 다른 대상은 짧은 안내 토스트. 바닥 내려놓기 차단."],
+                ["단계 잠금", "PickOrder → InsertInput → PickChip → InsertSlot → Produce → WaitOutput → PickOutput → InspectProduct(X) → Deliver → Done"],
+                ["허용 상호작용", "현재 단계 목표에만 Z 허용(확인 단계는 X만). 다른 대상은 짧은 안내 토스트. 바닥 내려놓기 차단."],
                 ["실패 없음", "인내심 감소/이탈 없음. 해금 모달 생략(모듈 자동 introduced)."],
                 ["안내 UI", "사이드 #tutorial-message + 월드 가이드 화살표/하이라이트. 완료 후 짧은 정산 → 준비 타임 → r01."],
             ],
