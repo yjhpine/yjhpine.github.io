@@ -46,7 +46,11 @@ const DASH_COOLDOWN = 0.55;
 const INTERACT_RANGE = 70;
 const CUE_RANGE = 160;
 const MAP_W = 960;
-const MAP_H = 720;
+const MAP_H = 580;
+/** Production line sits on the former bottom-shelf row. */
+const LINE_Y = 475;
+/** Left vertical module shelf column. */
+const SHELF_X = 72;
 const PLAYER_SCALE = 3;
 const PLAYER_FRAME = 32;
 const ART = "/assets/art";
@@ -221,7 +225,7 @@ export class KitchenScene extends Phaser.Scene {
     this.playerSprite.setScale(PLAYER_SCALE);
     this.playerSprite.setFlipX(false);
     this.carryIcon = this.add.image(18, -4, "item-order").setScale(1.25).setVisible(false);
-    this.player = this.add.container(MAP_W / 2, MAP_H * 0.62, [this.playerSprite, this.carryIcon]);
+    this.player = this.add.container(520, 280, [this.playerSprite, this.carryIcon]);
     this.player.setDepth(5);
     this.playPlayerAnim("player-idle");
     this.softGlow = this.add.image(0, 0, "soft-glow").setScale(2.2).setVisible(false).setDepth(0.5);
@@ -230,17 +234,17 @@ export class KitchenScene extends Phaser.Scene {
     this.guideArrow = this.add.image(0, 0, "guide-arrow").setScale(1.8).setVisible(false).setDepth(6.5);
     const produceZone = this.zones.find((zone) => zone.target.kind === "produce");
     const outputZone = this.zones.find((zone) => zone.target.kind === "output");
-    const produceX = produceZone?.x ?? 520;
-    const produceY = produceZone?.y ?? 360;
-    const outputX = outputZone?.x ?? 640;
-    const outputY = outputZone?.y ?? 360;
+    const produceX = produceZone?.x ?? 620;
+    const produceY = produceZone?.y ?? LINE_Y;
+    const outputX = outputZone?.x ?? 750;
+    const outputY = outputZone?.y ?? LINE_Y;
     this.produceSpark = this.add.sprite(produceX, produceY - 42, "produce-spark", 0).setScale(2).setVisible(false).setDepth(4);
     this.produceReadyMark = this.add.image(produceX, produceY - 42, "fx-ready").setScale(2).setVisible(false).setDepth(4);
     this.produceProgressFrame = this.add.image(produceX, produceY - 52, "progress-frame").setScale(2).setVisible(false).setDepth(4);
     this.produceProgressFill = this.add.image(produceX - 24, produceY - 52, "progress-fill").setOrigin(0, 0.5).setScale(2).setVisible(false).setDepth(4.1);
     this.completeBadge = this.add.image(produceX, produceY - 60, "complete-badge").setScale(1.6).setVisible(false).setDepth(8);
     this.outputProductPop = this.add.image(outputX, outputY - 30, "item-product").setScale(1.8).setVisible(false).setDepth(4);
-    this.counterBell = this.add.sprite(MAP_W * 0.72, 78, "counter-bell", 0).setScale(2).setDepth(2);
+    this.counterBell = this.add.sprite(MAP_W * 0.72, 70, "counter-bell", 0).setScale(2).setDepth(2);
 
     const keyboard = this.input.keyboard!;
     this.cursors = keyboard.createCursorKeys();
@@ -266,7 +270,7 @@ export class KitchenScene extends Phaser.Scene {
     this.wasProducing = false;
     this.applyUpgrades(session.getUpgradeEffects());
     this.tutorialGuide.reset(!!session.roundDefinition.isTutorial);
-    this.player.setPosition(MAP_W / 2, MAP_H * 0.62);
+    this.player.setPosition(520, 280);
     this.refreshStationLabels();
     this.syncCustomers();
     this.syncFloorItems();
@@ -851,23 +855,22 @@ export class KitchenScene extends Phaser.Scene {
 
   private buildStations(): void {
     this.zones = [
-      { target: { kind: "input" }, x: 90, y: 360, w: 100, h: 70, label: "입력기" },
-      { target: { kind: "slot", index: 0 }, x: 210, y: 360, w: 78, h: 70, label: "슬롯1" },
-      { target: { kind: "slot", index: 1 }, x: 310, y: 360, w: 78, h: 70, label: "슬롯2" },
-      { target: { kind: "slot", index: 2 }, x: 410, y: 360, w: 78, h: 70, label: "슬롯3" },
-      { target: { kind: "produce" }, x: 520, y: 360, w: 88, h: 70, label: "생산" },
-      { target: { kind: "output" }, x: 640, y: 360, w: 100, h: 70, label: "출구" },
+      { target: { kind: "input" }, x: 200, y: LINE_Y, w: 100, h: 70, label: "입력기" },
+      { target: { kind: "slot", index: 0 }, x: 310, y: LINE_Y, w: 78, h: 70, label: "슬롯1" },
+      { target: { kind: "slot", index: 1 }, x: 410, y: LINE_Y, w: 78, h: 70, label: "슬롯2" },
+      { target: { kind: "slot", index: 2 }, x: 510, y: LINE_Y, w: 78, h: 70, label: "슬롯3" },
+      { target: { kind: "produce" }, x: 620, y: LINE_Y, w: 88, h: 70, label: "생산" },
+      { target: { kind: "output" }, x: 750, y: LINE_Y, w: 100, h: 70, label: "출구" },
     ];
 
     const shelfModules = ["image-maker", "style-processor", "ban-list", "composition-planner", "sharpener", "quality-checker"];
     shelfModules.forEach((moduleId, index) => {
-      const x = 100 + index * 150;
       this.zones.push({
         target: { kind: "shelf", moduleId },
-        x,
-        y: 580,
-        w: 100,
-        h: 64,
+        x: SHELF_X,
+        y: 125 + index * 58,
+        w: 96,
+        h: 54,
         label: modulesById.get(moduleId)?.displayName ?? moduleId,
       });
     });
@@ -875,7 +878,7 @@ export class KitchenScene extends Phaser.Scene {
     for (const zone of this.zones) this.mountZoneView(zone);
 
     this.add
-      .text(MAP_W / 2, 24, "손님 카운터", {
+      .text(MAP_W / 2, 20, "손님 카운터", {
         fontSize: "13px",
         color: "#3e2a18",
         backgroundColor: "#ffe9c4ee",
@@ -890,18 +893,18 @@ export class KitchenScene extends Phaser.Scene {
   private mountZoneView(zone: StationZone): void {
     const key = JSON.stringify(zone.target);
     const isShelf = zone.target.kind === "shelf" || zone.target.kind === "quick-shelf";
-    const scale = isShelf ? 2.1 : 2;
+    const scale = isShelf ? 1.9 : 2;
     const children: Phaser.GameObjects.GameObject[] = [];
-    if (isShelf) children.push(this.add.image(0, 6, "station-module-shelf").setScale(zone.target.kind === "quick-shelf" ? 1.8 : 2));
-    const body = this.add.image(0, isShelf ? -8 : -4, this.stationTexture(zone.target)).setScale(scale);
+    if (isShelf) children.push(this.add.image(0, 4, "station-module-shelf").setScale(zone.target.kind === "quick-shelf" ? 1.6 : 1.75));
+    const body = this.add.image(0, isShelf ? -6 : -4, this.stationTexture(zone.target)).setScale(scale);
     const text = this.add
-      .text(0, isShelf ? 36 : 40, zone.label, {
-        fontSize: zone.target.kind === "quick-shelf" ? "10px" : "11px",
+      .text(0, isShelf ? 30 : 40, zone.label, {
+        fontSize: isShelf ? "9px" : "11px",
         color: "#3e2a18",
         align: "center",
         backgroundColor: "#ffe9c4ee",
-        padding: { x: 4, y: 2 },
-        wordWrap: { width: zone.w + 8 },
+        padding: { x: 3, y: 1 },
+        wordWrap: { width: zone.w + 4 },
       })
       .setOrigin(0.5);
     children.push(body, text);
@@ -946,10 +949,10 @@ export class KitchenScene extends Phaser.Scene {
       quickIds.forEach((moduleId, index) => {
         extras.push({
           target: { kind: "quick-shelf", moduleId },
-          x: 780,
-          y: 220 + index * 90,
-          w: 96,
-          h: 60,
+          x: 870,
+          y: 140 + index * 78,
+          w: 90,
+          h: 56,
           label: `퀵·${modulesById.get(moduleId)?.displayName ?? moduleId}`,
         });
       });
@@ -958,10 +961,10 @@ export class KitchenScene extends Phaser.Scene {
     if (this.upgrades.hasAnalyzer) {
       extras.push({
         target: { kind: "analyzer" },
-        x: 880,
-        y: 280,
-        w: 96,
-        h: 70,
+        x: 870,
+        y: 390,
+        w: 90,
+        h: 64,
         label: "분석기",
       });
     }
@@ -969,10 +972,10 @@ export class KitchenScene extends Phaser.Scene {
     if (this.upgrades.hasOrderAnalyzer) {
       extras.push({
         target: { kind: "order-analyzer" },
-        x: 880,
-        y: 380,
-        w: 96,
-        h: 70,
+        x: 870,
+        y: 470,
+        w: 90,
+        h: 64,
         label: "주문 분석",
       });
     }
@@ -1118,8 +1121,8 @@ export class KitchenScene extends Phaser.Scene {
     }
     waiting.forEach((customer, index) => {
       let view = this.customerViews.get(customer.id);
-      const x = 280 + index * 180;
-      const y = 110;
+      const x = 300 + index * 170;
+      const y = 100;
       const kind = CUSTOMER_KINDS[index % CUSTOMER_KINDS.length]!;
       if (!view) {
         const sprite = this.add.sprite(0, 10, `customer-${kind}-idle`, 0).setScale(2.2).setOrigin(0.5, 0.85);
@@ -1304,17 +1307,18 @@ export class KitchenScene extends Phaser.Scene {
     this.add.tileSprite(0, 0, MAP_W, MAP_H, "floor-tile").setOrigin(0, 0).setDepth(-20);
     this.add.tileSprite(0, 0, MAP_W, 28, "wall-rim").setOrigin(0, 0).setDepth(-19);
     this.add.tileSprite(0, MAP_H - 28, MAP_W, 28, "wall-rim").setOrigin(0, 0).setDepth(-19);
-    this.add.tileSprite(MAP_W / 2, 88, 860, 36, "counter-desk").setOrigin(0.5).setDepth(-18);
-    // Production line keeps the 720-era length/position (center ~360, span 620).
-    this.add.tileSprite(360, 360, 620, 56, "conveyor-belt").setOrigin(0.5).setDepth(-17);
-    this.add.tileSprite(MAP_W / 2, 620, 900, 40, "counter-desk").setOrigin(0.5).setDepth(-18);
+    this.add.tileSprite(MAP_W / 2 + 40, 78, 780, 34, "counter-desk").setOrigin(0.5).setDepth(-18);
+    // Production line along the former bottom-shelf row; modules occupy the left column.
+    this.add.tileSprite(475, LINE_Y, 640, 52, "conveyor-belt").setOrigin(0.5).setDepth(-17);
+    this.add.tileSprite(475, MAP_H - 36, 760, 32, "counter-desk").setOrigin(0.5).setDepth(-18);
+    // Left shelf rail.
+    this.add.tileSprite(SHELF_X, 300, 40, 420, "counter-desk").setOrigin(0.5).setDepth(-18);
 
-    // Soft dashed factory flow along the production line (not a forced path).
-    for (const x of [140, 230, 320, 410, 500, 580]) {
-      this.add.image(x, 392, "floor-dash").setScale(1.5).setAlpha(0.4).setDepth(-16.5);
+    for (const x of [220, 310, 410, 510, 610, 720]) {
+      this.add.image(x, LINE_Y + 28, "floor-dash").setScale(1.4).setAlpha(0.4).setDepth(-16.5);
     }
-    this.add.image(560, 392, "floor-flow").setScale(1.5).setAlpha(0.45).setDepth(-16.5);
-    this.add.image(MAP_W / 2, 240, "floor-dash").setScale(1.3).setAlpha(0.25).setAngle(90).setDepth(-16.5);
+    this.add.image(680, LINE_Y + 28, "floor-flow").setScale(1.4).setAlpha(0.45).setDepth(-16.5);
+    this.add.image(360, 260, "floor-dash").setScale(1.2).setAlpha(0.25).setAngle(90).setDepth(-16.5);
   }
 }
 

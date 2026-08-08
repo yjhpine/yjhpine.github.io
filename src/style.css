@@ -94,8 +94,8 @@ h1 { font-size: clamp(2.6rem, 8vw, 5.2rem); margin: 20px 0 10px; letter-spacing:
 .eyebrow { color: #b07a00; font-weight: 800; letter-spacing: .08em; font-size: .68rem; text-transform: uppercase; }
 .production { white-space: nowrap; }
 .game-canvas {
-  min-height: 540px;
-  aspect-ratio: 960 / 720;
+  min-height: 420px;
+  aspect-ratio: 960 / 580;
   width: min(100%, 960px);
   margin-inline: auto;
   flex: 1;
@@ -388,7 +388,7 @@ dt { color: #7fb9d3; font-size: .68rem; font-weight: 800; } dd { margin: 4px 0 0
 .issues { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }.issues li { display: grid; gap: 3px; padding: 9px 11px; border-left: 3px solid #f7d047; background: #fff4dc; border: 1px solid #c49a6c; }.issues b { font-size: .84rem; }.issues span { font-size: .75rem; color: #7a5534; }.recommendation { justify-self: start; padding: 4px 7px; border: 2px solid #8a5a32; border-radius: 6px; color: #3e2a18; background: #f7d047; font-size: .7rem; }
 .toast { position: fixed; left: 50%; bottom: 22px; z-index: 10; padding: 11px 16px; border-radius: 12px; border: 2px solid #8a5a32; background: #fff4dc; color: #3e2a18; box-shadow: 0 6px 0 #8a5a32; opacity: 0; transform: translate(-50%, 15px); pointer-events: none; transition: .2s ease; }.toast.error { color: #842e27; background: #ffe1de; }.toast.success { color: #134c30; background: #d9f7e7; }.toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
 
-.kitchen-layout { min-height: 640px; }
+.kitchen-layout { min-height: 520px; }
 .inspect-modal { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 24px; background: rgba(80, 50, 20, .55); backdrop-filter: blur(3px); }
 .inspect-modal.is-hidden { display: none !important; }
 .inspect-card { width: min(520px, 100%); max-height: min(86vh, 720px); overflow: auto; padding: 22px; border-radius: 18px; border: 3px solid #8a5a32; background: linear-gradient(160deg, #fff4dc, #f0d2a0); box-shadow: 0 12px 0 #8a5a32; position: relative; color: #3e2a18; }

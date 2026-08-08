@@ -23,7 +23,7 @@ export type TutorialTarget =
 const STEP_HINTS: Record<TutorialStep, string> = {
   "pick-order": "손님에게 다가가 Z로 주문서를 집으세요.",
   "insert-input": "입력기(왼쪽)에 다가가 Z로 주문서를 넣으세요.",
-  "pick-chip": "하단 선반의 그림 제작기 칩을 Z로 집으세요.",
+  "pick-chip": "왼쪽 선반의 그림 제작기 칩을 Z로 집으세요.",
   "insert-slot": "빈 슬롯에 다가가 Z로 칩을 꽂으세요.",
   "produce": "생산기에서 Z를 눌러 생산을 시작하세요.",
   "wait-output": "생산이 끝날 때까지 기다리세요. 출구를 보세요.",

@@ -196,7 +196,7 @@ export class UIController {
         <div>
           <b>${escapeHtml(definition.displayName)}</b>
           <p>${escapeHtml(definition.unlockTutorial)}</p>
-          <small>VRAM ${definition.vramCost} · 하단 선반에서 집어 슬롯에 꽂으세요</small>
+          <small>VRAM ${definition.vramCost} · 왼쪽 선반에서 집어 슬롯에 꽂으세요</small>
         </div>
       </article>`;
     }).join("");
