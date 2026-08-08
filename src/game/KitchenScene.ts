@@ -14,7 +14,6 @@ type SceneEvents = {
   inspectToggle: void;
   roundFinished: RoundStats;
   tutorialStep: { step: string; hint: string; active: boolean };
-  upgradeShop: void;
   productAnalysis: void;
   orderAnalysis: void;
 };
@@ -28,7 +27,6 @@ type InteractTarget =
   | { kind: "shelf"; moduleId: string }
   | { kind: "quick-shelf"; moduleId: string }
   | { kind: "floor"; id: string }
-  | { kind: "upgrade-terminal" }
   | { kind: "analyzer" }
   | { kind: "order-analyzer" };
 
@@ -512,9 +510,6 @@ export class KitchenScene extends Phaser.Scene {
       case "shelf": return session.pickUpFromShelf(target.moduleId);
       case "quick-shelf": return session.pickUpFromShelf(target.moduleId);
       case "floor": return session.pickUpFromFloor(target.id);
-      case "upgrade-terminal":
-        this.eventBus.emit("upgradeShop", undefined);
-        return { ok: true, tone: "info", message: "업그레이드 터미널을 열었습니다." };
       case "analyzer": {
         const carry = session.getCarry();
         if (carry.kind !== "product") {
@@ -850,7 +845,6 @@ export class KitchenScene extends Phaser.Scene {
     if (target.kind === "output") return "station-output-empty";
     if (target.kind === "slot") return "station-slot";
     if (target.kind === "shelf" || target.kind === "quick-shelf") return "module-locked";
-    if (target.kind === "upgrade-terminal") return "station-produce-idle";
     if (target.kind === "analyzer" || target.kind === "order-analyzer") return "station-input";
     return "station-slot";
   }
@@ -863,7 +857,6 @@ export class KitchenScene extends Phaser.Scene {
       { target: { kind: "slot", index: 2 }, x: 410, y: 360, w: 78, h: 70, label: "슬롯3" },
       { target: { kind: "produce" }, x: 520, y: 360, w: 88, h: 70, label: "생산" },
       { target: { kind: "output" }, x: 640, y: 360, w: 100, h: 70, label: "출구" },
-      { target: { kind: "upgrade-terminal" }, x: 860, y: 520, w: 96, h: 70, label: "업그레이드" },
     ];
 
     const shelfModules = ["image-maker", "style-processor", "ban-list", "composition-planner", "sharpener", "quality-checker"];
@@ -1099,10 +1092,6 @@ export class KitchenScene extends Phaser.Scene {
           const def = modulesById.get(zone.target.moduleId);
           label.setText(`${prefix}${def?.displayName ?? zone.target.moduleId}`);
         }
-      }
-      if (zone.target.kind === "upgrade-terminal") {
-        label.setText("업그레이드");
-        lamp?.setTexture("status-lamp-ready");
       }
       if (zone.target.kind === "analyzer") {
         label.setText("분석기");

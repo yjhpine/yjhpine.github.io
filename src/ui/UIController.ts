@@ -10,6 +10,7 @@ import { rounds, roundsById } from "../data/rounds";
 import type { UpgradeId } from "../data/upgrades";
 import { KitchenScene } from "../game/KitchenScene";
 import { orderAnalysisRows, productAnalysisRows } from "./analysisView";
+import { activateNextRoundForPrep } from "./prepFlow";
 import { renderPreview } from "./renderPreview";
 
 export class UIController {
@@ -21,7 +22,7 @@ export class UIController {
   private inspectOpen = false;
   private roundSummaryOpen = false;
   private unlockTutorialOpen = false;
-  private upgradeShopOpen = false;
+  private prepOpen = false;
   private analysisOpen = false;
   private pendingUnlockModuleIds: string[] = [];
 
@@ -51,15 +52,14 @@ export class UIController {
     scene.eventBus.on("inspectToggle", () => this.toggleInspect());
     scene.eventBus.on("roundFinished", (stats) => this.onRoundFinished(stats));
     scene.eventBus.on("tutorialStep", ({ hint, active }) => this.onTutorialStep(hint, active));
-    scene.eventBus.on("upgradeShop", () => this.openUpgradeShop());
     scene.eventBus.on("productAnalysis", () => this.openProductAnalysis());
     scene.eventBus.on("orderAnalysis", () => this.openOrderAnalysis());
   }
 
   private bindDom(): void {
     this.byId<HTMLButtonElement>("start-game").addEventListener("click", () => this.startRound(true));
-    this.byId<HTMLButtonElement>("continue-game").addEventListener("click", () => this.startRound(false));
-    this.byId<HTMLButtonElement>("next-round").addEventListener("click", () => this.advanceRound());
+    this.byId<HTMLButtonElement>("continue-game").addEventListener("click", () => this.openPrep());
+    this.byId<HTMLButtonElement>("next-round").addEventListener("click", () => this.advanceToPrep());
     this.byId<HTMLButtonElement>("clear-save").addEventListener("click", () => this.clearSave());
     this.byId<HTMLButtonElement>("back-to-menu").addEventListener("click", () => this.showMenu());
     this.byId<HTMLButtonElement>("reset-line").addEventListener("click", () => {
@@ -74,11 +74,8 @@ export class UIController {
     });
     this.byId<HTMLButtonElement>("round-summary-close").addEventListener("click", () => this.closeRoundSummary());
     this.byId<HTMLButtonElement>("unlock-tutorial-ok").addEventListener("click", () => this.closeUnlockTutorial(true));
-    this.byId<HTMLButtonElement>("upgrade-shop-close").addEventListener("click", () => this.closeUpgradeShop());
-    this.byId("upgrade-shop-modal").addEventListener("click", (event) => {
-      if (event.target === this.byId("upgrade-shop-modal")) this.closeUpgradeShop();
-    });
-    this.byId("upgrade-shop-list").addEventListener("click", (event) => {
+    this.byId<HTMLButtonElement>("prep-start").addEventListener("click", () => this.confirmPrepStart());
+    this.byId("prep-shop-list").addEventListener("click", (event) => {
       const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-upgrade-id]");
       if (!button) return;
       this.purchaseUpgrade(button.dataset.upgradeId as UpgradeId);
@@ -104,7 +101,7 @@ export class UIController {
     this.closeInspect();
     this.closeRoundSummary();
     this.closeUnlockTutorial(false);
-    this.closeUpgradeShop();
+    this.closePrep(false);
     this.closeAnalysis();
     this.scene.loadSession(this.session);
     this.byId("menu-screen").classList.add("is-hidden");
@@ -223,7 +220,7 @@ export class UIController {
   }
 
   private toggleInspect(): void {
-    if (this.roundSummaryOpen || this.unlockTutorialOpen || this.upgradeShopOpen || this.analysisOpen) return;
+    if (this.roundSummaryOpen || this.unlockTutorialOpen || this.prepOpen || this.analysisOpen) return;
     if (this.inspectOpen) {
       this.closeInspect();
       return;
@@ -294,25 +291,36 @@ export class UIController {
     }
   }
 
-  private openUpgradeShop(): void {
-    if (this.roundSummaryOpen || this.unlockTutorialOpen) return;
+  private openPrep(): void {
+    if (!this.scene) { this.showNotice("주방 화면을 준비하고 있습니다.", "info"); return; }
     this.closeInspect();
     this.closeAnalysis();
-    this.upgradeShopOpen = true;
-    this.renderUpgradeShop();
-    this.byId("upgrade-shop-modal").classList.remove("is-hidden");
-    this.scene?.scene.pause();
+    this.closeRoundSummary();
+    this.closeUnlockTutorial(false);
+    this.prepOpen = true;
+    this.byId("menu-screen").classList.add("is-hidden");
+    this.byId("game-screen").classList.remove("is-hidden");
+    this.scene.scale.refresh();
+    this.renderPrep();
+    this.byId("prep-modal").classList.remove("is-hidden");
+    if (this.scene.scene.isActive() && !this.scene.scene.isPaused()) this.scene.scene.pause();
   }
 
-  private closeUpgradeShop(): void {
-    this.upgradeShopOpen = false;
-    this.byId("upgrade-shop-modal").classList.add("is-hidden");
-    if (this.scene?.scene.isPaused() && !this.unlockTutorialOpen) this.scene.scene.resume();
+  private closePrep(resumeScene: boolean): void {
+    this.prepOpen = false;
+    this.byId("prep-modal").classList.add("is-hidden");
+    if (resumeScene && this.scene?.scene.isPaused() && !this.unlockTutorialOpen) {
+      this.scene.scene.resume();
+    }
   }
 
-  private renderUpgradeShop(): void {
-    this.byId("upgrade-shop-credits").textContent = `${this.progression.credits} C`;
-    this.byId("upgrade-shop-list").innerHTML = this.progression.shopCatalog().map((row) => {
+  private renderPrep(): void {
+    const round = roundsById.get(this.progression.currentRoundId)!;
+    this.byId("prep-round-title").textContent = round.title;
+    this.byId("prep-round-summary").textContent =
+      `목표 손님 ${round.targetCustomers}명 · VRAM 예산 ${round.vramBudget}`;
+    this.byId("prep-credits").textContent = `${this.progression.credits} C`;
+    this.byId("prep-shop-list").innerHTML = this.progression.shopCatalog().map((row) => {
       const levelText = row.maxLevel > 1 ? `Lv.${row.level}/${row.maxLevel}` : (row.level >= 1 ? "보유" : "미보유");
       let action = "";
       if (!row.unlocked) {
@@ -340,11 +348,15 @@ export class UIController {
       return;
     }
     this.saveService.save(this.progression);
-    this.scene?.applyUpgrades(result.effects);
-    this.renderHud();
-    this.renderUpgradeShop();
+    this.renderPrep();
     const name = this.progression.shopCatalog().find((row) => row.id === id)?.displayName ?? id;
     this.showNotice(`${name} 업그레이드 완료 (−${result.spent}C)`, "success");
+  }
+
+  private confirmPrepStart(): void {
+    this.closePrep(false);
+    if (this.scene?.scene.isPaused()) this.scene.scene.resume();
+    this.startRound(false);
   }
 
   private openProductAnalysis(): void {
@@ -367,7 +379,7 @@ export class UIController {
 
   private openAnalysis(title: string, hint: string, rows: Array<{ label: string; matched?: boolean; detail: string }>, prompt: string): void {
     this.closeInspect();
-    this.closeUpgradeShop();
+    this.closePrep(false);
     this.analysisOpen = true;
     this.byId("analysis-body").innerHTML = `
       <p class="inspect-eyebrow">분석기</p>
@@ -390,7 +402,7 @@ export class UIController {
     this.analysisOpen = false;
     this.byId("analysis-modal").classList.add("is-hidden");
     this.byId("analysis-body").innerHTML = "";
-    if (this.scene?.scene.isPaused() && !this.unlockTutorialOpen && !this.upgradeShopOpen) {
+    if (this.scene?.scene.isPaused() && !this.unlockTutorialOpen && !this.prepOpen) {
       this.scene.scene.resume();
     }
   }
@@ -421,7 +433,7 @@ export class UIController {
         <p class="inspect-hint">조작을 익혔습니다. 본 라운드에서 손님을 응대해 보세요.</p>
         <div class="result-summary success"><b>보상 +${score.creditReward} 크레딧</b><span>다음으로 라운드 1이 열립니다.</span></div>`;
       this.byId<HTMLButtonElement>("next-round").hidden = !next;
-      this.byId<HTMLButtonElement>("next-round").textContent = next ? "본 라운드 시작 →" : "완료";
+      this.byId<HTMLButtonElement>("next-round").textContent = next ? "준비 타임 →" : "완료";
       this.byId("round-summary-modal").classList.remove("is-hidden");
       return;
     }
@@ -436,7 +448,7 @@ export class UIController {
       </ul>
       <div class="result-summary success"><b>보상 +${score.creditReward} 크레딧</b><span>최적 파이프라인일수록 VRAM 효율 점수가 올라갑니다.</span></div>`;
     this.byId<HTMLButtonElement>("next-round").hidden = !next;
-    this.byId<HTMLButtonElement>("next-round").textContent = next ? "다음 라운드 →" : "모든 라운드 완료";
+    this.byId<HTMLButtonElement>("next-round").textContent = next ? "준비 타임 →" : "모든 라운드 완료";
     this.byId("round-summary-modal").classList.remove("is-hidden");
   }
 
@@ -445,16 +457,16 @@ export class UIController {
     this.byId("round-summary-modal").classList.add("is-hidden");
   }
 
-  private advanceRound(): void {
-    const next = this.progression.nextRoundId();
+  private advanceToPrep(): void {
+    const next = activateNextRoundForPrep(this.progression);
     if (!next) {
       this.showNotice("모든 라운드를 완료했습니다!", "success");
       this.closeRoundSummary();
       return;
     }
-    this.progression.activateRound(next);
     this.saveService.save(this.progression);
-    this.startRound(false);
+    this.closeRoundSummary();
+    this.openPrep();
   }
 
   private clearSave(): void {
@@ -464,7 +476,7 @@ export class UIController {
     this.closeInspect();
     this.closeRoundSummary();
     this.closeUnlockTutorial(false);
-    this.closeUpgradeShop();
+    this.closePrep(false);
     this.closeAnalysis();
     this.showMenu();
     this.renderMenu();
@@ -474,7 +486,7 @@ export class UIController {
     this.closeInspect();
     this.closeRoundSummary();
     this.closeUnlockTutorial(false);
-    this.closeUpgradeShop();
+    this.closePrep(false);
     this.closeAnalysis();
     this.byId("game-screen").classList.add("is-hidden");
     this.byId("menu-screen").classList.remove("is-hidden");
@@ -533,7 +545,7 @@ function shell(): string {
       <button id="start-game" class="primary">새 게임 시작</button>
       <button id="continue-game" class="secondary">이어서 하기</button>
     </div>
-    <p class="menu-note">WASD 이동 · Z 상호작용(빈 곳 내려놓기·찬 슬롯 스왑·업그레이드 터미널) · C 대시 · X 확인 · 생산마다 VRAM 소모</p>
+    <p class="menu-note">WASD 이동 · Z 상호작용 · C 대시 · X 확인 · 업그레이드는 라운드 시작 전 준비 타임</p>
   </section>
   <section id="game-screen" class="game-screen is-hidden">
     <header class="topbar">
@@ -565,7 +577,7 @@ function shell(): string {
       </aside>
       <section class="factory-column">
         <div id="game-canvas" class="game-canvas" aria-label="주방 공장 공간"></div>
-        <p class="canvas-help">WASD 이동 · Z 상호작용 · 우측 업그레이드 터미널 · C 대시 · X 들여다보기</p>
+        <p class="canvas-help">WASD 이동 · Z 상호작용 · C 대시 · X 들여다보기 · 업그레이드는 준비 타임</p>
       </section>
     </div>
   </section>
@@ -575,13 +587,15 @@ function shell(): string {
       <div id="inspect-body"></div>
     </div>
   </div>
-  <div id="upgrade-shop-modal" class="inspect-modal is-hidden" role="dialog" aria-modal="true" aria-label="업그레이드 상점">
-    <div class="inspect-card upgrade-shop-card">
-      <button id="upgrade-shop-close" class="ghost inspect-close" type="button">닫기</button>
-      <p class="inspect-eyebrow">공장 업그레이드</p>
-      <h2>터미널 상점</h2>
-      <p class="upgrade-shop-balance">보유 크레딧 <b id="upgrade-shop-credits">0 C</b></p>
-      <div id="upgrade-shop-list" class="upgrade-shop-list"></div>
+  <div id="prep-modal" class="inspect-modal is-hidden" role="dialog" aria-modal="true" aria-label="준비 타임">
+    <div class="inspect-card upgrade-shop-card prep-card">
+      <p class="inspect-eyebrow">준비 타임</p>
+      <h2>공장 업그레이드</h2>
+      <p id="prep-round-title" class="prep-round-title"></p>
+      <p id="prep-round-summary" class="prep-round-summary"></p>
+      <p class="upgrade-shop-balance">보유 크레딧 <b id="prep-credits">0 C</b></p>
+      <div id="prep-shop-list" class="upgrade-shop-list"></div>
+      <button id="prep-start" class="primary next-round-btn" type="button">라운드 시작 →</button>
     </div>
   </div>
   <div id="analysis-modal" class="inspect-modal is-hidden" role="dialog" aria-modal="true" aria-label="분석기">
@@ -594,7 +608,7 @@ function shell(): string {
     <div class="inspect-card">
       <button id="round-summary-close" class="ghost inspect-close" type="button">닫기</button>
       <div id="round-summary-body"></div>
-      <button id="next-round" class="primary next-round-btn">다음 라운드 →</button>
+      <button id="next-round" class="primary next-round-btn">준비 타임 →</button>
     </div>
   </div>
   <div id="unlock-tutorial" class="unlock-tutorial is-hidden" role="dialog" aria-modal="true" aria-label="새 모듈 해금">

@@ -13,6 +13,7 @@ import {
   computeUpgradeEffects,
 } from "../data/upgrades";
 import { TutorialGuide } from "../game/TutorialGuide";
+import { activateNextRoundForPrep } from "../ui/prepFlow";
 import { renderPreview } from "../ui/renderPreview";
 
 function serveCustomer(session: KitchenSession, chips: string[]): void {
@@ -593,5 +594,27 @@ describe("Delivery credits & upgrades", () => {
     expect(computeDeliveryCredits({ passed: true, perfect: false, patienceRatio: 0.6 })).toEqual({
       success: 100, perfect: 0, patience: 20, total: 120,
     });
+  });
+});
+
+describe("Prep flow helpers", () => {
+  it("activates the next round without starting a kitchen session", () => {
+    const progression = ProgressionService.createDefault();
+    progression.completeActiveRound(80, 50);
+    expect(progression.currentRoundId).toBe("r00");
+    expect(activateNextRoundForPrep(progression)).toBe("r01");
+    expect(progression.currentRoundId).toBe("r01");
+    expect(progression.isUpgradeUnlocked("work-shoes")).toBe(false);
+    progression.completeActiveRound(90, 200);
+    expect(progression.isUpgradeUnlocked("work-shoes")).toBe(true);
+  });
+
+  it("returns undefined when every round is already finished", () => {
+    const progression = ProgressionService.createDefault();
+    for (const round of rounds) {
+      progression.activateRound(round.id);
+      progression.completeActiveRound(80, 50);
+    }
+    expect(activateNextRoundForPrep(progression)).toBeUndefined();
   });
 });

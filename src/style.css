@@ -401,6 +401,9 @@ dt { color: #7fb9d3; font-size: .68rem; font-weight: 800; } dd { margin: 4px 0 0
 .inspect-card .preview-stage { margin-bottom: 4px; }
 .inspect-card .score-grid { margin-top: 10px; }
 .upgrade-shop-card { width: min(560px, 100%); }
+.prep-card { width: min(580px, 100%); }
+.prep-round-title { margin: 0 0 4px; font-size: 1.05rem; font-weight: 800; color: #3e2a18; }
+.prep-round-summary { margin: 0 0 14px; color: #7a5534; font-size: .88rem; }
 .upgrade-shop-balance { margin: 0 0 14px; color: #7a5534; font-size: .9rem; }
 .upgrade-shop-balance b { color: #3e2a18; }
 .upgrade-shop-list { display: grid; gap: 10px; }

@@ -1,0 +1,12 @@
+제목: 8월8일 라운드 시작 전 준비 타임
+
+변경점
+- KitchenScene: 인게임 업그레이드 터미널·upgradeShop 이벤트 제거
+- UIController: 정산→준비 타임→라운드 시작, 이어서 하기→준비 타임
+- prep-modal: 다음 라운드 요약·상점·「라운드 시작」 CTA
+- prepFlow.ts: activateNextRoundForPrep 헬퍼 + 테스트
+- 새 게임(r00)은 준비 타임 스킵
+
+기능
+- 구매는 준비 타임에만 가능
+- 라운드 플레이 중에는 상점 진입 불가
