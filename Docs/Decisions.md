@@ -1,5 +1,11 @@
 # Decisions
 
+## 2026-08-08 (개발 AI 활용 기술 문서)
+
+- 제출용으로 **개발 과정에서 쓴 AI 도구·프롬프트·활용 내역**을 PDF로 고정한다.
+- 경로: `문서/Meowdel_개발_AI_활용_기술문서.pdf` (생성기 `Docs/_tools/generate_ai_usage.py`).
+- 런타임 생성형 AI API는 쓰지 않았다는 점과, ChatGPT 이미지 원문 프롬프트는 저장소에 없음을 명시한다.
+
 ## 2026-08-08 (취약점 하드닝 P0/P1)
 
 - 주방 선반은 progression unlock ∩ 라운드 `availableModuleIds`만 표시. 다음 라운드 칩은 **준비 타임 전진** 시에만 해금.

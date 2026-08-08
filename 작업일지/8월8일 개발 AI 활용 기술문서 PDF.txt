@@ -1,0 +1,13 @@
+제목: 8월8일 개발 AI 활용 기술문서 PDF
+
+작업 내용:
+- Docs/_tools/generate_ai_usage.py 추가
+- 문서/Meowdel_개발_AI_활용_기술문서.pdf 생성 (3페이지)
+  - Cursor Cloud Agent / ChatGPT Images / Aseprite MCP / Pillow 절차적 아트
+  - 프롬프트·지시 패턴, 시기별 내역, 미사용 경계, 근거 파일
+- README·SubmissionChecklist·Decisions·Progress 링크/기록
+
+변경 파일:
+- Docs/_tools/generate_ai_usage.py
+- 문서/Meowdel_개발_AI_활용_기술문서.pdf
+- README.md, Docs/SubmissionChecklist.md, Docs/Decisions.md, Docs/Progress.md
