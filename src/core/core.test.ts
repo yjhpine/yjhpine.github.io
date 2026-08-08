@@ -2,11 +2,16 @@ import { describe, expect, it } from "vitest";
 import { GenerationSimulator } from "./generation/GenerationSimulator";
 import { buildPreviewModel, createPreviewAssetKey, PREVIEW_ASSET_KEYS, previewImageSrc } from "./generation/previewModel";
 import { KitchenSession } from "./kitchen/KitchenSession";
+import { DEFAULT_PATIENCE } from "./kitchen/types";
 import { produceSlowdownMultiplier, RoundScoreService } from "./kitchen/RoundScoreService";
 import { ProgressionService } from "./progression/ProgressionService";
 import { SaveService, type StorageAdapter } from "./save/SaveService";
 import { ordersById } from "../data/orders";
 import { buildRoundOrderQueue, rounds } from "../data/rounds";
+import {
+  computeDeliveryCredits,
+  computeUpgradeEffects,
+} from "../data/upgrades";
 import { TutorialGuide } from "../game/TutorialGuide";
 import { renderPreview } from "../ui/renderPreview";
 
@@ -438,5 +443,155 @@ describe("TutorialGuide step lock", () => {
     expect(guide.onAfterAction(deliver, session)).toBe(true);
     expect(guide.getStep()).toBe("done");
     expect(guide.isActive()).toBe(false);
+  });
+});
+
+describe("Delivery credits & upgrades", () => {
+  it("awards 100+50+20 on a perfect delivery with high patience", () => {
+    const session = new KitchenSession("r01");
+    session.tick(0.1);
+    const customer = session.getWaitingCustomers()[0]!;
+    expect(customer.patience / customer.maxPatience).toBeGreaterThanOrEqual(0.5);
+    session.resetLine();
+    session.pickUpFromCustomer(customer.id);
+    session.interactInput();
+    session.pickUpFromShelf("image-maker");
+    session.interactSlot(0);
+    session.startProduce();
+    session.tick(3);
+    session.interactOutput();
+    const delivery = session.deliverToCustomer(customer.id);
+    expect(delivery.delivered?.passed).toBe(true);
+    expect(delivery.delivered?.breakdown).toEqual({
+      success: 100,
+      perfect: 50,
+      patience: 20,
+      total: 170,
+    });
+    expect(delivery.delivered?.reward).toBe(170);
+  });
+
+  it("awards 0 credits on a failed delivery", () => {
+    const session = new KitchenSession("r02", ["image-maker", "style-processor"]);
+    // Resolve first o01, then fail the next o02 without style chip.
+    session.tick(0.1);
+    const first = session.getWaitingCustomers()[0]!;
+    session.resetLine();
+    session.pickUpFromCustomer(first.id);
+    session.interactInput();
+    session.pickUpFromShelf("image-maker");
+    session.interactSlot(0);
+    session.startProduce();
+    session.tick(3);
+    session.interactOutput();
+    session.deliverToCustomer(first.id);
+
+    session.tick(1);
+    const second = session.getWaitingCustomers()[0]!;
+    session.resetLine();
+    session.pickUpFromCustomer(second.id);
+    session.interactInput();
+    session.pickUpFromShelf("image-maker");
+    session.interactSlot(0);
+    session.startProduce();
+    session.tick(3);
+    session.interactOutput();
+    const delivery = session.deliverToCustomer(second.id);
+    expect(delivery.delivered?.passed).toBe(false);
+    expect(delivery.delivered?.reward).toBe(0);
+    expect(delivery.delivered?.breakdown.total).toBe(0);
+  });
+
+  it("scales patience on spawn from coffee-machine upgrade", () => {
+    const effects = computeUpgradeEffects({ "coffee-machine": 2 });
+    const session = new KitchenSession("r01", undefined, undefined, effects);
+    session.tick(0.1);
+    const customer = session.getWaitingCustomers()[0]!;
+    expect(customer.maxPatience).toBeCloseTo(DEFAULT_PATIENCE * 1.2, 5);
+  });
+
+  it("reduces produce duration from producer upgrade", () => {
+    const base = new KitchenSession("r01");
+    base.tick(0.1);
+    const customer = base.getWaitingCustomers()[0]!;
+    base.pickUpFromCustomer(customer.id);
+    base.interactInput();
+    base.pickUpFromShelf("image-maker");
+    base.interactSlot(0);
+    base.startProduce();
+    const baseProgress = base.getProduceProgress();
+
+    const upgraded = new KitchenSession("r01", undefined, undefined, computeUpgradeEffects({ producer: 3 }));
+    upgraded.tick(0.1);
+    const c2 = upgraded.getWaitingCustomers()[0]!;
+    upgraded.pickUpFromCustomer(c2.id);
+    upgraded.interactInput();
+    upgraded.pickUpFromShelf("image-maker");
+    upgraded.interactSlot(0);
+    upgraded.startProduce();
+    // After identical wait, upgraded should be further along (shorter planned duration)
+    base.tick(0.3);
+    upgraded.tick(0.3);
+    expect(upgraded.getProduceProgress()).toBeGreaterThan(base.getProduceProgress());
+    expect(baseProgress).toBe(0);
+  });
+
+  it("gates purchases by round clear, balance, and max level", () => {
+    const progression = ProgressionService.createDefault();
+    expect(progression.purchaseUpgrade("work-shoes").ok).toBe(false);
+    progression.completeActiveRound(80, 50); // r00
+    progression.activateRound("r01");
+    progression.completeActiveRound(90, 200); // r01 → unlock shoes
+    expect(progression.isUpgradeUnlocked("work-shoes")).toBe(true);
+    expect(progression.credits).toBe(250);
+
+    const bought = progression.purchaseUpgrade("work-shoes");
+    expect(bought).toMatchObject({ ok: true, level: 1, spent: 100 });
+    expect(progression.getUpgradeLevel("work-shoes")).toBe(1);
+    expect(progression.credits).toBe(150);
+
+    // Lv2 costs 250 — insufficient
+    expect(progression.purchaseUpgrade("work-shoes")).toEqual({
+      ok: false,
+      reason: "크레딧이 부족합니다.",
+    });
+
+    progression.addCredits(1000);
+    expect(progression.purchaseUpgrade("work-shoes").ok).toBe(true);
+    expect(progression.purchaseUpgrade("work-shoes").ok).toBe(true);
+    expect(progression.purchaseUpgrade("work-shoes")).toEqual({
+      ok: false,
+      reason: "이미 최대 레벨입니다.",
+    });
+  });
+
+  it("persists upgrade levels across save/load and resets on new game", () => {
+    const storage = new MemoryStorage();
+    const service = new SaveService(storage);
+    const progression = ProgressionService.createDefault();
+    progression.completeActiveRound(80, 50);
+    progression.activateRound("r01");
+    progression.completeActiveRound(90, 500);
+    expect(progression.purchaseUpgrade("work-shoes").ok).toBe(true);
+    service.save(progression);
+
+    const loaded = service.load();
+    expect(loaded.getUpgradeLevel("work-shoes")).toBe(1);
+    expect(loaded.upgradeEffects.moveSpeedBonus).toBe(0.05);
+
+    const fresh = ProgressionService.createDefault();
+    expect(fresh.getUpgradeLevel("work-shoes")).toBe(0);
+  });
+
+  it("computes delivery credit helpers", () => {
+    expect(computeDeliveryCredits({ passed: false, patienceRatio: 1 })).toEqual({
+      success: 0, perfect: 0, patience: 0, total: 0,
+    });
+    expect(computeDeliveryCredits({ passed: true, patienceRatio: 0.4 })).toEqual({
+      success: 100, perfect: 50, patience: 0, total: 150,
+    });
+    expect(computeDeliveryCredits({ passed: true, perfect: false, patienceRatio: 0.6 })).toEqual({
+      success: 100, perfect: 0, patience: 20, total: 120,
+    });
   });
 });

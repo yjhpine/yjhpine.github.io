@@ -2,6 +2,11 @@ import { modulesById } from "../../data/modules";
 import { ordersById } from "../../data/orders";
 import { pickPromptForOrder } from "../../data/prompts";
 import { roundsById, buildRoundOrderQueue, type RoundDefinition } from "../../data/rounds";
+import {
+  computeDeliveryCredits,
+  emptyUpgradeEffects,
+  type UpgradeEffects,
+} from "../../data/upgrades";
 import { GenerationSimulator } from "../generation/GenerationSimulator";
 import { OrderEvaluator } from "../orders/OrderEvaluator";
 import type { OrderDefinition } from "../types";
@@ -50,8 +55,14 @@ export class KitchenSession {
   private readonly assignedOrderIds: string[] = [];
   private roundFinished = false;
   private pendingSpend = 0;
+  private upgrades: UpgradeEffects;
 
-  constructor(roundId: string, unlockedModuleIds?: string[], slotCount = SLOT_COUNT) {
+  constructor(
+    roundId: string,
+    unlockedModuleIds?: string[],
+    slotCount = SLOT_COUNT,
+    upgrades: UpgradeEffects = emptyUpgradeEffects(),
+  ) {
     this.round = roundsById.get(roundId) ?? roundsById.get("r01")!;
     this.slots = Array.from({ length: slotCount }, () => null);
     const unlocked = unlockedModuleIds ?? this.round.availableModuleIds;
@@ -61,7 +72,16 @@ export class KitchenSession {
     }
     this.shelfModuleIds = [...this.unlockedModuleIds];
     this.orderQueue = buildRoundOrderQueue(this.round);
+    this.upgrades = { ...upgrades };
     this.spawnCustomer();
+  }
+
+  setUpgrades(upgrades: UpgradeEffects): void {
+    this.upgrades = { ...upgrades };
+  }
+
+  getUpgradeEffects(): UpgradeEffects {
+    return { ...this.upgrades };
   }
 
   get roundDefinition(): RoundDefinition { return this.round; }
@@ -253,7 +273,8 @@ export class KitchenSession {
     const projectedUsed = this.vramUsed + this.pendingSpend;
     const slowdown = produceSlowdownMultiplier(projectedUsed, this.round.vramBudget);
     const base = Math.max(0.8, this.estimateProcessingTime(this.input.order.orderId) * 0.35);
-    this.plannedProduceDuration = base * slowdown;
+    const produceMul = Math.max(0.4, 1 - this.upgrades.produceTimeReduction);
+    this.plannedProduceDuration = base * slowdown * produceMul;
     this.produceTimer = this.plannedProduceDuration;
     this.producing = true;
     const over = Math.max(0, projectedUsed - this.round.vramBudget);
@@ -280,7 +301,6 @@ export class KitchenSession {
     if (this.carry.customerId !== customer.id) return fail("이 손님의 주문이 아닙니다. 다른 손님에게 가져가세요.");
 
     const product = this.carry;
-    const orderDef = ordersById.get(product.orderId) ?? this.order;
     this.carry = emptyCarry();
     customer.state = "served";
     this.resolvedCustomers += 1;
@@ -288,15 +308,24 @@ export class KitchenSession {
     else this.failedDeliveries += 1;
     this.spawnCooldown = Math.min(this.spawnCooldown, 0.4);
 
-    const reward = product.evaluation.passed ? Math.floor(orderDef.reward * 0.35) : Math.floor(orderDef.reward * 0.1);
+    const patienceRatio = customer.maxPatience > 0 ? customer.patience / customer.maxPatience : 0;
+    const breakdown = computeDeliveryCredits({
+      passed: product.evaluation.passed,
+      perfect: product.evaluation.passed,
+      patienceRatio,
+    });
+    const reward = breakdown.total;
     const result: KitchenActionResult = {
       ok: product.evaluation.passed,
       tone: product.evaluation.passed ? "success" : "error",
-      message: product.evaluation.passed ? `납품 성공! +${reward} 크레딧` : `조건 미달 납품… +${reward} 크레딧`,
+      message: product.evaluation.passed
+        ? `납품 성공! +${reward} 크레딧`
+        : "조건 미달 납품… +0 크레딧",
       delivered: {
         customerId: customer.id,
         reward,
         passed: product.evaluation.passed,
+        breakdown,
         evaluation: product.evaluation,
         result: product.result,
       },
@@ -335,12 +364,13 @@ export class KitchenSession {
     this.queueIndex += 1;
     this.customerSequence += 1;
     this.assignedOrderIds.push(orderId);
+    const patience = DEFAULT_PATIENCE * (1 + this.upgrades.patienceBonus);
     this.customers.push({
       id: `customer-${this.customerSequence}`,
       orderId,
       prompt: pickPromptForOrder(orderId, this.customerSequence),
-      patience: DEFAULT_PATIENCE,
-      maxPatience: DEFAULT_PATIENCE,
+      patience,
+      maxPatience: patience,
       state: "waiting",
       orderTaken: false,
     });

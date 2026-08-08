@@ -101,4 +101,6 @@ export interface SaveData {
   tutorialStage: number;
   activeRoundId: string;
   bestRoundScores: Record<string, number>;
+  /** Purchased upgrade levels by upgrade id (0 = not owned). */
+  upgradeLevels: Record<string, number>;
 }

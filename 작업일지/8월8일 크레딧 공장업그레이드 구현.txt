@@ -1,0 +1,15 @@
+제목: 8월8일 크레딧 공장업그레이드 구현
+
+변경점
+- src/data/upgrades.ts: 업그레이드 7종 정의, 효과/납품보상 계산, 분석용 조건 라벨
+- SaveData.upgradeLevels + ProgressionService 구매/해금/상점 API + SaveService 하위호환 로드
+- KitchenSession: 납품 보상 +100/+50/+20/0, 인내심·생산시간 배율, setUpgrades
+- KitchenScene: 이동속도·상호작용 딜레이 배율, 업그레이드 터미널, 퀵 선반·분석기 존
+- UIController: 상점 모달(구매/차감/핫어플라이), 분석기·주문 분석기 모달(칩 이름 비공개)
+- core.test: 납품 breakdown, 구매 게이트, 인내심/생산시간, 세이브 유지
+
+기능
+- 우측 업그레이드 터미널 Z → 상점
+- 해금된 업그레이드만 구매, 잔액·최대레벨 검사
+- 분석기: 결과물 Subject/Style/Composition/Sharpness 일치표
+- 주문 분석기: 주문서 구조화 조건 표시

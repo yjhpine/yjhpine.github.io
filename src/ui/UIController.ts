@@ -5,8 +5,11 @@ import type { CarryItem, RoundStats } from "../core/kitchen/types";
 import { SaveService } from "../core/save/SaveService";
 import { ProgressionService } from "../core/progression/ProgressionService";
 import { modulesById } from "../data/modules";
+import { ordersById } from "../data/orders";
 import { rounds, roundsById } from "../data/rounds";
+import type { UpgradeId } from "../data/upgrades";
 import { KitchenScene } from "../game/KitchenScene";
+import { orderAnalysisRows, productAnalysisRows } from "./analysisView";
 import { renderPreview } from "./renderPreview";
 
 export class UIController {
@@ -18,6 +21,8 @@ export class UIController {
   private inspectOpen = false;
   private roundSummaryOpen = false;
   private unlockTutorialOpen = false;
+  private upgradeShopOpen = false;
+  private analysisOpen = false;
   private pendingUnlockModuleIds: string[] = [];
 
   constructor(private readonly root: HTMLElement) {
@@ -46,6 +51,9 @@ export class UIController {
     scene.eventBus.on("inspectToggle", () => this.toggleInspect());
     scene.eventBus.on("roundFinished", (stats) => this.onRoundFinished(stats));
     scene.eventBus.on("tutorialStep", ({ hint, active }) => this.onTutorialStep(hint, active));
+    scene.eventBus.on("upgradeShop", () => this.openUpgradeShop());
+    scene.eventBus.on("productAnalysis", () => this.openProductAnalysis());
+    scene.eventBus.on("orderAnalysis", () => this.openOrderAnalysis());
   }
 
   private bindDom(): void {
@@ -66,6 +74,19 @@ export class UIController {
     });
     this.byId<HTMLButtonElement>("round-summary-close").addEventListener("click", () => this.closeRoundSummary());
     this.byId<HTMLButtonElement>("unlock-tutorial-ok").addEventListener("click", () => this.closeUnlockTutorial(true));
+    this.byId<HTMLButtonElement>("upgrade-shop-close").addEventListener("click", () => this.closeUpgradeShop());
+    this.byId("upgrade-shop-modal").addEventListener("click", (event) => {
+      if (event.target === this.byId("upgrade-shop-modal")) this.closeUpgradeShop();
+    });
+    this.byId("upgrade-shop-list").addEventListener("click", (event) => {
+      const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-upgrade-id]");
+      if (!button) return;
+      this.purchaseUpgrade(button.dataset.upgradeId as UpgradeId);
+    });
+    this.byId<HTMLButtonElement>("analysis-close").addEventListener("click", () => this.closeAnalysis());
+    this.byId("analysis-modal").addEventListener("click", (event) => {
+      if (event.target === this.byId("analysis-modal")) this.closeAnalysis();
+    });
   }
 
   private startRound(fresh: boolean): void {
@@ -74,10 +95,17 @@ export class UIController {
       this.progression = ProgressionService.createDefault();
       this.saveService.save(this.progression);
     }
-    this.session = new KitchenSession(this.progression.currentRoundId, this.progression.unlockedModuleIds);
+    this.session = new KitchenSession(
+      this.progression.currentRoundId,
+      this.progression.unlockedModuleIds,
+      undefined,
+      this.progression.upgradeEffects,
+    );
     this.closeInspect();
     this.closeRoundSummary();
     this.closeUnlockTutorial(false);
+    this.closeUpgradeShop();
+    this.closeAnalysis();
     this.scene.loadSession(this.session);
     this.byId("menu-screen").classList.add("is-hidden");
     this.byId("game-screen").classList.remove("is-hidden");
@@ -195,7 +223,7 @@ export class UIController {
   }
 
   private toggleInspect(): void {
-    if (this.roundSummaryOpen || this.unlockTutorialOpen) return;
+    if (this.roundSummaryOpen || this.unlockTutorialOpen || this.upgradeShopOpen || this.analysisOpen) return;
     if (this.inspectOpen) {
       this.closeInspect();
       return;
@@ -247,11 +275,124 @@ export class UIController {
     this.closeInspect();
   }
 
-  private onDelivered(payload: { reward: number; passed: boolean }): void {
+  private onDelivered(payload: {
+    reward: number;
+    passed: boolean;
+    breakdown?: { success: number; perfect: number; patience: number; total: number };
+  }): void {
     this.closeInspect();
     this.progression.addCredits(payload.reward);
     this.saveService.save(this.progression);
     this.renderHud();
+    if (payload.breakdown && payload.passed) {
+      const parts = [
+        `성공 +${payload.breakdown.success}`,
+        payload.breakdown.perfect ? `완벽 +${payload.breakdown.perfect}` : null,
+        payload.breakdown.patience ? `인내심 +${payload.breakdown.patience}` : null,
+      ].filter(Boolean);
+      this.showNotice(`납품 보상 ${parts.join(" · ")} = +${payload.breakdown.total}C`, "success");
+    }
+  }
+
+  private openUpgradeShop(): void {
+    if (this.roundSummaryOpen || this.unlockTutorialOpen) return;
+    this.closeInspect();
+    this.closeAnalysis();
+    this.upgradeShopOpen = true;
+    this.renderUpgradeShop();
+    this.byId("upgrade-shop-modal").classList.remove("is-hidden");
+    this.scene?.scene.pause();
+  }
+
+  private closeUpgradeShop(): void {
+    this.upgradeShopOpen = false;
+    this.byId("upgrade-shop-modal").classList.add("is-hidden");
+    if (this.scene?.scene.isPaused() && !this.unlockTutorialOpen) this.scene.scene.resume();
+  }
+
+  private renderUpgradeShop(): void {
+    this.byId("upgrade-shop-credits").textContent = `${this.progression.credits} C`;
+    this.byId("upgrade-shop-list").innerHTML = this.progression.shopCatalog().map((row) => {
+      const levelText = row.maxLevel > 1 ? `Lv.${row.level}/${row.maxLevel}` : (row.level >= 1 ? "보유" : "미보유");
+      let action = "";
+      if (!row.unlocked) {
+        action = `<button class="secondary" type="button" disabled>${row.unlockAfterRoundId} 클리어 후</button>`;
+      } else if (row.level >= row.maxLevel) {
+        action = `<button class="secondary" type="button" disabled>최대 레벨</button>`;
+      } else {
+        const canAfford = (row.nextPrice ?? 0) <= this.progression.credits;
+        action = `<button class="primary" type="button" data-upgrade-id="${row.id}" ${canAfford ? "" : "disabled"}>${row.nextPrice} C</button>`;
+      }
+      return `<article class="upgrade-row ${row.unlocked ? "" : "is-locked"}">
+        <div>
+          <b>${escapeHtml(row.displayName)} <small>${levelText}</small></b>
+          <p>${escapeHtml(row.description)}</p>
+        </div>
+        ${action}
+      </article>`;
+    }).join("");
+  }
+
+  private purchaseUpgrade(id: UpgradeId): void {
+    const result = this.progression.purchaseUpgrade(id);
+    if (!result.ok) {
+      this.showNotice(result.reason, "error");
+      return;
+    }
+    this.saveService.save(this.progression);
+    this.scene?.applyUpgrades(result.effects);
+    this.renderHud();
+    this.renderUpgradeShop();
+    const name = this.progression.shopCatalog().find((row) => row.id === id)?.displayName ?? id;
+    this.showNotice(`${name} 업그레이드 완료 (−${result.spent}C)`, "success");
+  }
+
+  private openProductAnalysis(): void {
+    if (!this.session) return;
+    const carry = this.session.getCarry();
+    if (carry.kind !== "product") return;
+    const rows = productAnalysisRows(carry.orderId, carry.result);
+    this.openAnalysis("결과 분석", "칩 이름은 표시되지 않습니다.", rows, carry.prompt);
+  }
+
+  private openOrderAnalysis(): void {
+    if (!this.session) return;
+    const carry = this.session.getCarry();
+    if (carry.kind !== "order") return;
+    const order = ordersById.get(carry.orderId);
+    if (!order) return;
+    const rows = orderAnalysisRows(order);
+    this.openAnalysis("주문 분석", "필요한 조건을 구조화해 보여 줍니다. 칩 이름은 비공개입니다.", rows, carry.prompt);
+  }
+
+  private openAnalysis(title: string, hint: string, rows: Array<{ label: string; matched?: boolean; detail: string }>, prompt: string): void {
+    this.closeInspect();
+    this.closeUpgradeShop();
+    this.analysisOpen = true;
+    this.byId("analysis-body").innerHTML = `
+      <p class="inspect-eyebrow">분석기</p>
+      <h2>${escapeHtml(title)}</h2>
+      <blockquote class="inspect-prompt">“${escapeHtml(prompt)}”</blockquote>
+      <ul class="analysis-list">
+        ${rows.map((row) => {
+          const badge = row.matched === undefined
+            ? ""
+            : `<em class="${row.matched ? "ok" : "bad"}">${row.matched ? "일치" : "불일치"}</em>`;
+          return `<li><span>${escapeHtml(row.label)}</span><b>${escapeHtml(row.detail)}</b>${badge}</li>`;
+        }).join("")}
+      </ul>
+      <p class="inspect-hint">${escapeHtml(hint)}</p>`;
+    this.byId("analysis-modal").classList.remove("is-hidden");
+    this.scene?.scene.pause();
+  }
+
+  private closeAnalysis(): void {
+    this.analysisOpen = false;
+    this.byId("analysis-modal").classList.add("is-hidden");
+    this.byId("analysis-body").innerHTML = "";
+    if (this.scene?.scene.isPaused() && !this.unlockTutorialOpen && !this.upgradeShopOpen) {
+      this.scene.scene.resume();
+    }
   }
 
   private onRoundFinished(stats: RoundStats): void {
@@ -323,6 +464,8 @@ export class UIController {
     this.closeInspect();
     this.closeRoundSummary();
     this.closeUnlockTutorial(false);
+    this.closeUpgradeShop();
+    this.closeAnalysis();
     this.showMenu();
     this.renderMenu();
   }
@@ -331,6 +474,8 @@ export class UIController {
     this.closeInspect();
     this.closeRoundSummary();
     this.closeUnlockTutorial(false);
+    this.closeUpgradeShop();
+    this.closeAnalysis();
     this.byId("game-screen").classList.add("is-hidden");
     this.byId("menu-screen").classList.remove("is-hidden");
   }
@@ -388,7 +533,7 @@ function shell(): string {
       <button id="start-game" class="primary">새 게임 시작</button>
       <button id="continue-game" class="secondary">이어서 하기</button>
     </div>
-    <p class="menu-note">WASD 이동 · Z 상호작용(빈 곳 내려놓기·찬 슬롯 스왑) · C 대시 · X 확인 · 생산마다 VRAM 소모</p>
+    <p class="menu-note">WASD 이동 · Z 상호작용(빈 곳 내려놓기·찬 슬롯 스왑·업그레이드 터미널) · C 대시 · X 확인 · 생산마다 VRAM 소모</p>
   </section>
   <section id="game-screen" class="game-screen is-hidden">
     <header class="topbar">
@@ -420,7 +565,7 @@ function shell(): string {
       </aside>
       <section class="factory-column">
         <div id="game-canvas" class="game-canvas" aria-label="주방 공장 공간"></div>
-        <p class="canvas-help">WASD 이동 · Z 상호작용(빈 곳 내려놓기·찬 슬롯 스왑) · C 대시 · X 들여다보기 · 생산 시 VRAM 소모</p>
+        <p class="canvas-help">WASD 이동 · Z 상호작용 · 우측 업그레이드 터미널 · C 대시 · X 들여다보기</p>
       </section>
     </div>
   </section>
@@ -428,6 +573,21 @@ function shell(): string {
     <div class="inspect-card">
       <button id="inspect-close" class="ghost inspect-close" type="button">닫기 (X)</button>
       <div id="inspect-body"></div>
+    </div>
+  </div>
+  <div id="upgrade-shop-modal" class="inspect-modal is-hidden" role="dialog" aria-modal="true" aria-label="업그레이드 상점">
+    <div class="inspect-card upgrade-shop-card">
+      <button id="upgrade-shop-close" class="ghost inspect-close" type="button">닫기</button>
+      <p class="inspect-eyebrow">공장 업그레이드</p>
+      <h2>터미널 상점</h2>
+      <p class="upgrade-shop-balance">보유 크레딧 <b id="upgrade-shop-credits">0 C</b></p>
+      <div id="upgrade-shop-list" class="upgrade-shop-list"></div>
+    </div>
+  </div>
+  <div id="analysis-modal" class="inspect-modal is-hidden" role="dialog" aria-modal="true" aria-label="분석기">
+    <div class="inspect-card">
+      <button id="analysis-close" class="ghost inspect-close" type="button">닫기</button>
+      <div id="analysis-body"></div>
     </div>
   </div>
   <div id="round-summary-modal" class="inspect-modal is-hidden" role="dialog" aria-modal="true" aria-label="라운드 정산">

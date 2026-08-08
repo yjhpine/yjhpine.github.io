@@ -1,7 +1,8 @@
 import Phaser from "phaser";
 import { KitchenSession } from "../core/kitchen/KitchenSession";
-import type { CarryItem, KitchenActionResult, RoundStats } from "../core/kitchen/types";
+import { CHIP_MODULE_IDS, type CarryItem, type KitchenActionResult, type RoundStats } from "../core/kitchen/types";
 import { modulesById } from "../data/modules";
+import { emptyUpgradeEffects, type UpgradeEffects } from "../data/upgrades";
 import { GameEventBus } from "./events/GameEventBus";
 import { TutorialGuide } from "./TutorialGuide";
 
@@ -13,6 +14,9 @@ type SceneEvents = {
   inspectToggle: void;
   roundFinished: RoundStats;
   tutorialStep: { step: string; hint: string; active: boolean };
+  upgradeShop: void;
+  productAnalysis: void;
+  orderAnalysis: void;
 };
 
 type InteractTarget =
@@ -22,7 +26,11 @@ type InteractTarget =
   | { kind: "output" }
   | { kind: "slot"; index: number }
   | { kind: "shelf"; moduleId: string }
-  | { kind: "floor"; id: string };
+  | { kind: "quick-shelf"; moduleId: string }
+  | { kind: "floor"; id: string }
+  | { kind: "upgrade-terminal" }
+  | { kind: "analyzer" }
+  | { kind: "order-analyzer" };
 
 interface StationZone {
   target: InteractTarget;
@@ -96,6 +104,8 @@ export class KitchenScene extends Phaser.Scene {
   private isMoving = false;
   private currentAnimKey = "";
   private wasProducing = false;
+  private upgrades: UpgradeEffects = emptyUpgradeEffects();
+  private utilityZoneKeys: string[] = [];
 
   constructor() { super("Kitchen"); }
 
@@ -256,6 +266,7 @@ export class KitchenScene extends Phaser.Scene {
   loadSession(session: KitchenSession): void {
     this.session = session;
     this.wasProducing = false;
+    this.applyUpgrades(session.getUpgradeEffects());
     this.tutorialGuide.reset(!!session.roundDefinition.isTutorial);
     this.player.setPosition(MAP_W / 2, MAP_H * 0.62);
     this.refreshStationLabels();
@@ -265,6 +276,18 @@ export class KitchenScene extends Phaser.Scene {
     this.syncPlayerAnim();
     this.emitTutorialStep();
     this.eventBus.emit("sessionChanged", undefined);
+  }
+
+  /** Hot-apply purchased upgrades to movement / delay / utility stations. */
+  applyUpgrades(effects: UpgradeEffects): void {
+    this.upgrades = { ...effects };
+    this.session?.setUpgrades(effects);
+    this.rebuildUtilityZones();
+    this.refreshStationLabels();
+  }
+
+  getUpgradeEffects(): UpgradeEffects {
+    return { ...this.upgrades };
   }
 
   getTutorialHint(): string | undefined {
@@ -406,14 +429,15 @@ export class KitchenScene extends Phaser.Scene {
       const len = Math.hypot(input.x, input.y);
       this.facingX = input.x / len;
       this.facingY = input.y / len;
-      vx = this.facingX * SPEED * dt;
-      vy = this.facingY * SPEED * dt;
+      const speed = SPEED * (1 + this.upgrades.moveSpeedBonus);
+      vx = this.facingX * speed * dt;
+      vy = this.facingY * speed * dt;
       this.isMoving = true;
     }
     let nx = Phaser.Math.Clamp(this.player.x + vx, 40, MAP_W - 40);
     let ny = Phaser.Math.Clamp(this.player.y + vy, 100, MAP_H - 40);
     for (const zone of this.zones) {
-      if (zone.target.kind === "customer" || zone.target.kind === "shelf") continue;
+      if (zone.target.kind === "customer" || zone.target.kind === "shelf" || zone.target.kind === "quick-shelf") continue;
       const near = Math.abs(nx - zone.x) < zone.w / 2 + 16 && Math.abs(ny - zone.y) < zone.h / 2 + 16;
       if (near) {
         const pushX = nx - zone.x;
@@ -428,7 +452,8 @@ export class KitchenScene extends Phaser.Scene {
   private tryInteract(): void {
     if (!this.session || !this.interactReady) return;
     this.interactReady = false;
-    this.time.delayedCall(120, () => { this.interactReady = true; });
+    const delay = Math.max(40, 120 * (1 - this.upgrades.interactDelayReduction));
+    this.time.delayedCall(delay, () => { this.interactReady = true; });
     const carry = this.session.getCarry();
     const target = this.nearestTarget({ includeFloor: carry.kind === "none" });
     let result: KitchenActionResult;
@@ -485,7 +510,27 @@ export class KitchenScene extends Phaser.Scene {
       case "output": return session.interactOutput();
       case "slot": return session.interactSlot(target.index);
       case "shelf": return session.pickUpFromShelf(target.moduleId);
+      case "quick-shelf": return session.pickUpFromShelf(target.moduleId);
       case "floor": return session.pickUpFromFloor(target.id);
+      case "upgrade-terminal":
+        this.eventBus.emit("upgradeShop", undefined);
+        return { ok: true, tone: "info", message: "업그레이드 터미널을 열었습니다." };
+      case "analyzer": {
+        const carry = session.getCarry();
+        if (carry.kind !== "product") {
+          return { ok: false, tone: "error", message: "완성 이미지를 든 채로 분석하세요." };
+        }
+        this.eventBus.emit("productAnalysis", undefined);
+        return { ok: true, tone: "info", message: "분석 결과를 표시합니다." };
+      }
+      case "order-analyzer": {
+        const carry = session.getCarry();
+        if (carry.kind !== "order") {
+          return { ok: false, tone: "error", message: "주문서를 든 채로 분석하세요." };
+        }
+        this.eventBus.emit("orderAnalysis", undefined);
+        return { ok: true, tone: "info", message: "주문 조건을 표시합니다." };
+      }
     }
   }
 
@@ -501,7 +546,7 @@ export class KitchenScene extends Phaser.Scene {
     if (result.delivered) {
       this.spawnFx("fx-success", pos.x, pos.y - 28, 2.2);
       this.spawnFx("fx-sparkle", pos.x + 10, pos.y - 40, 1.6);
-      const label = result.delivered.passed ? `Perfect! +${result.delivered.reward}C` : `+${result.delivered.reward}C`;
+      const label = `+${result.delivered.reward}C`;
       this.floatCreditText(pos.x, pos.y - 50, label);
       const view = this.customerViews.get(result.delivered.customerId);
       if (view) this.tweens.add({ targets: view, y: view.y - 10, duration: 120, yoyo: true, ease: "Sine.easeOut" });
@@ -574,7 +619,7 @@ export class KitchenScene extends Phaser.Scene {
     const includeFloor = options.includeFloor ?? true;
     let best: { target: InteractTarget; dist: number } | undefined;
     for (const zone of this.zones) {
-      if (zone.target.kind === "shelf") {
+      if (zone.target.kind === "shelf" || zone.target.kind === "quick-shelf") {
         if (!this.session?.getShelfModuleIds().includes(zone.target.moduleId)) continue;
       }
       const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, zone.x, zone.y);
@@ -634,7 +679,7 @@ export class KitchenScene extends Phaser.Scene {
     let scale = 2.4;
     if (target.kind === "customer") scale = 2.8;
     else if (target.kind === "floor") scale = 1.6;
-    else if (target.kind === "shelf") scale = 2.2;
+    else if (target.kind === "shelf" || target.kind === "quick-shelf") scale = 2.2;
     else scale = 2.6;
     const bob = Math.sin(this.time.now / 220) * 3;
     this.softGlow.setPosition(pos.x, pos.y + 8).setScale(scale * 0.95).setVisible(true).setAlpha(0.85);
@@ -804,7 +849,9 @@ export class KitchenScene extends Phaser.Scene {
     if (target.kind === "produce") return "station-produce-idle";
     if (target.kind === "output") return "station-output-empty";
     if (target.kind === "slot") return "station-slot";
-    if (target.kind === "shelf") return "module-locked";
+    if (target.kind === "shelf" || target.kind === "quick-shelf") return "module-locked";
+    if (target.kind === "upgrade-terminal") return "station-produce-idle";
+    if (target.kind === "analyzer" || target.kind === "order-analyzer") return "station-input";
     return "station-slot";
   }
 
@@ -816,6 +863,7 @@ export class KitchenScene extends Phaser.Scene {
       { target: { kind: "slot", index: 2 }, x: 410, y: 360, w: 78, h: 70, label: "슬롯3" },
       { target: { kind: "produce" }, x: 520, y: 360, w: 88, h: 70, label: "생산" },
       { target: { kind: "output" }, x: 640, y: 360, w: 100, h: 70, label: "출구" },
+      { target: { kind: "upgrade-terminal" }, x: 860, y: 520, w: 96, h: 70, label: "업그레이드" },
     ];
 
     const shelfModules = ["image-maker", "style-processor", "ban-list", "composition-planner", "sharpener", "quality-checker"];
@@ -831,39 +879,7 @@ export class KitchenScene extends Phaser.Scene {
       });
     });
 
-    for (const zone of this.zones) {
-      const key = JSON.stringify(zone.target);
-      const isShelf = zone.target.kind === "shelf";
-      const scale = isShelf ? 2.1 : 2;
-      const children: Phaser.GameObjects.GameObject[] = [];
-      if (isShelf) children.push(this.add.image(0, 6, "station-module-shelf").setScale(2));
-      const body = this.add.image(0, isShelf ? -8 : -4, this.stationTexture(zone.target)).setScale(scale);
-      const text = this.add
-        .text(0, isShelf ? 36 : 40, zone.label, {
-          fontSize: "11px",
-          color: "#3e2a18",
-          align: "center",
-          backgroundColor: "#ffe9c4ee",
-          padding: { x: 4, y: 2 },
-          wordWrap: { width: zone.w + 8 },
-        })
-        .setOrigin(0.5);
-      children.push(body, text);
-      const container = this.add.container(zone.x, zone.y, children);
-      container.setDepth(1);
-      this.zoneViews.set(key, container);
-
-      if (!isShelf) {
-        const lamp = this.add.image(zone.x + zone.w * 0.28, zone.y - 34, "status-lamp-off").setScale(2).setDepth(2);
-        this.stationLamps.set(key, lamp);
-        const ghost = this.add.image(zone.x, zone.y - 50, "ghost-order").setScale(1.6).setVisible(false).setDepth(3);
-        this.ghostViews.set(key, ghost);
-      }
-      if (zone.target.kind === "slot") {
-        const cue = this.add.image(zone.x, zone.y - 4, "slot-available").setScale(2.1).setVisible(false).setDepth(2);
-        this.slotAvailableCues.set(zone.target.index, cue);
-      }
-    }
+    for (const zone of this.zones) this.mountZoneView(zone);
 
     this.add
       .text(MAP_W / 2, 24, "손님 카운터", {
@@ -874,14 +890,114 @@ export class KitchenScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setDepth(2);
+
+    this.rebuildUtilityZones();
+  }
+
+  private mountZoneView(zone: StationZone): void {
+    const key = JSON.stringify(zone.target);
+    const isShelf = zone.target.kind === "shelf" || zone.target.kind === "quick-shelf";
+    const scale = isShelf ? 2.1 : 2;
+    const children: Phaser.GameObjects.GameObject[] = [];
+    if (isShelf) children.push(this.add.image(0, 6, "station-module-shelf").setScale(zone.target.kind === "quick-shelf" ? 1.8 : 2));
+    const body = this.add.image(0, isShelf ? -8 : -4, this.stationTexture(zone.target)).setScale(scale);
+    const text = this.add
+      .text(0, isShelf ? 36 : 40, zone.label, {
+        fontSize: zone.target.kind === "quick-shelf" ? "10px" : "11px",
+        color: "#3e2a18",
+        align: "center",
+        backgroundColor: "#ffe9c4ee",
+        padding: { x: 4, y: 2 },
+        wordWrap: { width: zone.w + 8 },
+      })
+      .setOrigin(0.5);
+    children.push(body, text);
+    const container = this.add.container(zone.x, zone.y, children);
+    container.setDepth(1);
+    this.zoneViews.set(key, container);
+
+    if (!isShelf) {
+      const lamp = this.add.image(zone.x + zone.w * 0.28, zone.y - 34, "status-lamp-off").setScale(2).setDepth(2);
+      this.stationLamps.set(key, lamp);
+      const ghost = this.add.image(zone.x, zone.y - 50, "ghost-order").setScale(1.6).setVisible(false).setDepth(3);
+      this.ghostViews.set(key, ghost);
+    }
+    if (zone.target.kind === "slot") {
+      const cue = this.add.image(zone.x, zone.y - 4, "slot-available").setScale(2.1).setVisible(false).setDepth(2);
+      this.slotAvailableCues.set(zone.target.index, cue);
+    }
+  }
+
+  private clearUtilityZones(): void {
+    for (const key of this.utilityZoneKeys) {
+      this.zoneViews.get(key)?.destroy(true);
+      this.zoneViews.delete(key);
+      this.stationLamps.get(key)?.destroy();
+      this.stationLamps.delete(key);
+      this.ghostViews.get(key)?.destroy();
+      this.ghostViews.delete(key);
+    }
+    this.zones = this.zones.filter((zone) => !this.utilityZoneKeys.includes(JSON.stringify(zone.target)));
+    this.utilityZoneKeys = [];
+  }
+
+  private rebuildUtilityZones(): void {
+    this.clearUtilityZones();
+    const extras: StationZone[] = [];
+
+    if (this.upgrades.hasChipShelf) {
+      const unlocked = this.session?.getUnlockedModuleIds() ?? [...CHIP_MODULE_IDS];
+      const quickIds = (CHIP_MODULE_IDS as readonly string[])
+        .filter((id) => unlocked.includes(id))
+        .slice(0, 3);
+      quickIds.forEach((moduleId, index) => {
+        extras.push({
+          target: { kind: "quick-shelf", moduleId },
+          x: 780,
+          y: 220 + index * 90,
+          w: 96,
+          h: 60,
+          label: `퀵·${modulesById.get(moduleId)?.displayName ?? moduleId}`,
+        });
+      });
+    }
+
+    if (this.upgrades.hasAnalyzer) {
+      extras.push({
+        target: { kind: "analyzer" },
+        x: 880,
+        y: 280,
+        w: 96,
+        h: 70,
+        label: "분석기",
+      });
+    }
+
+    if (this.upgrades.hasOrderAnalyzer) {
+      extras.push({
+        target: { kind: "order-analyzer" },
+        x: 880,
+        y: 380,
+        w: 96,
+        h: 70,
+        label: "주문 분석",
+      });
+    }
+
+    for (const zone of extras) {
+      const key = JSON.stringify(zone.target);
+      this.utilityZoneKeys.push(key);
+      this.zones.push(zone);
+      this.mountZoneView(zone);
+    }
   }
 
   private bodyIndex(target: InteractTarget): number {
-    return target.kind === "shelf" ? 1 : 0;
+    return target.kind === "shelf" || target.kind === "quick-shelf" ? 1 : 0;
   }
 
   private labelIndex(target: InteractTarget): number {
-    return target.kind === "shelf" ? 2 : 1;
+    return target.kind === "shelf" || target.kind === "quick-shelf" ? 2 : 1;
   }
 
   private refreshStationLabels(): void {
@@ -964,10 +1080,11 @@ export class KitchenScene extends Phaser.Scene {
           }
         }
       }
-      if (zone.target.kind === "shelf") {
+      if (zone.target.kind === "shelf" || zone.target.kind === "quick-shelf") {
         const unlocked = this.session.getUnlockedModuleIds().includes(zone.target.moduleId);
         const inStock = this.session.getShelfModuleIds().includes(zone.target.moduleId);
         const spriteKey = MODULE_SPRITE[zone.target.moduleId] ?? "module-locked";
+        const prefix = zone.target.kind === "quick-shelf" ? "퀵·" : "";
         if (!unlocked) {
           body.setTexture("module-locked");
           body.setAlpha(0.55);
@@ -975,13 +1092,25 @@ export class KitchenScene extends Phaser.Scene {
         } else if (!inStock) {
           body.setTexture(spriteKey);
           body.setAlpha(0.28);
-          label.setText("없음");
+          label.setText(`${prefix}없음`);
         } else {
           body.setTexture(spriteKey);
           body.setAlpha(1);
           const def = modulesById.get(zone.target.moduleId);
-          label.setText(def?.displayName ?? zone.target.moduleId);
+          label.setText(`${prefix}${def?.displayName ?? zone.target.moduleId}`);
         }
+      }
+      if (zone.target.kind === "upgrade-terminal") {
+        label.setText("업그레이드");
+        lamp?.setTexture("status-lamp-ready");
+      }
+      if (zone.target.kind === "analyzer") {
+        label.setText("분석기");
+        lamp?.setTexture("status-lamp-ready");
+      }
+      if (zone.target.kind === "order-analyzer") {
+        label.setText("주문 분석");
+        lamp?.setTexture("status-lamp-ready");
       }
     }
   }

@@ -31,6 +31,9 @@ export class SaveService {
           tutorialStage: typeof parsed.tutorialStage === "number" ? parsed.tutorialStage : 1,
           activeRoundId: parsed.activeRoundId,
           bestRoundScores: parsed.bestRoundScores ?? {},
+          upgradeLevels: parsed.upgradeLevels && typeof parsed.upgradeLevels === "object"
+            ? parsed.upgradeLevels
+            : {},
         });
       }
       return ProgressionService.createDefault();

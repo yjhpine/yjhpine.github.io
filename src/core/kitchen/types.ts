@@ -72,6 +72,13 @@ export interface RoundStats {
   finished: boolean;
 }
 
+export interface DeliveryRewardBreakdown {
+  success: number;
+  perfect: number;
+  patience: number;
+  total: number;
+}
+
 export interface KitchenActionResult {
   ok: boolean;
   message?: string;
@@ -80,6 +87,7 @@ export interface KitchenActionResult {
     customerId: string;
     reward: number;
     passed: boolean;
+    breakdown: DeliveryRewardBreakdown;
     evaluation: OrderEvaluation;
     result: GenerationResult;
   };
