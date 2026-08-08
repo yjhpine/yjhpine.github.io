@@ -5,5 +5,6 @@ export function activateNextRoundForPrep(progression: ProgressionService): strin
   const next = progression.nextRoundId();
   if (!next) return undefined;
   progression.activateRound(next);
+  progression.unlockModulesForRound(next);
   return next;
 }

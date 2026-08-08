@@ -1,0 +1,21 @@
+제목: 8월8일 취약점 하드닝 P0/P1
+
+작업 내용:
+- KitchenSession 선반 = unlock ∩ CHIP ∩ round.availableModuleIds
+- completeActiveRound에서 다음 라운드 칩 미리 해금 제거 → prep(activateNextRoundForPrep)에서 unlockModulesForRound
+- computeDeliveryCredits: perfect 파라미터 제거(통과 시 +100+50, 인내심≥50% +20)
+- isUiBlockingOverlay + KitchenScene setInputBlocked, inspect/정산도 scene.pause
+- SaveData tutorialStage 제거, load 시 클램프(normalizeSaveData)
+- unlockAfterRoundId / isUpgradeUnlocked 런타임 제거
+- 회귀 테스트·Decisions/Progress·기획 PDF 문구 동기화
+
+변경 파일:
+- src/core/kitchen/KitchenSession.ts
+- src/core/progression/ProgressionService.ts
+- src/core/save/SaveService.ts
+- src/core/types.ts
+- src/data/upgrades.ts
+- src/ui/prepFlow.ts, overlayGate.ts, UIController.ts
+- src/game/KitchenScene.ts
+- src/core/core.test.ts
+- Docs/*

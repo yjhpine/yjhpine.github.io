@@ -98,7 +98,6 @@ export interface SaveData {
   unlockedModuleIds: string[];
   /** Module ids whose unlock tutorial widget was already shown. */
   introducedModuleIds: string[];
-  tutorialStage: number;
   activeRoundId: string;
   bestRoundScores: Record<string, number>;
   /** Purchased upgrade levels by upgrade id (0 = not owned). */

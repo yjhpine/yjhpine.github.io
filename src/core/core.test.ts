@@ -14,6 +14,7 @@ import {
 } from "../data/upgrades";
 import { TutorialGuide } from "../game/TutorialGuide";
 import { activateNextRoundForPrep } from "../ui/prepFlow";
+import { isUiBlockingOverlay } from "../ui/overlayGate";
 import { renderPreview } from "../ui/renderPreview";
 
 function serveCustomer(session: KitchenSession, chips: string[]): void {
@@ -356,14 +357,41 @@ describe("SaveService v2", () => {
     const service = new SaveService(storage);
     const progression = ProgressionService.createDefault();
     progression.completeActiveRound(50, 50);
-    progression.activateRound("r01");
+    expect(activateNextRoundForPrep(progression)).toBe("r01");
     progression.completeActiveRound(92, 180);
+    expect(activateNextRoundForPrep(progression)).toBe("r02");
     service.save(progression);
     const loaded = service.load();
     expect(loaded.credits).toBe(230);
     expect(loaded.bestRoundScores.r00).toBe(50);
     expect(loaded.bestRoundScores.r01).toBe(92);
     expect(loaded.unlockedModuleIds).toContain("style-processor");
+    expect(loaded.currentRoundId).toBe("r02");
+  });
+
+  it("clamps corrupt save fields on load", () => {
+    const storage = new MemoryStorage();
+    storage.setItem("ai-factory-save-v2", JSON.stringify({
+      version: 2,
+      credits: -50,
+      completedRoundIds: ["r01", "nope"],
+      unlockedModuleIds: ["image-maker", "not-a-chip", "style-processor"],
+      introducedModuleIds: ["style-processor", "bogus"],
+      tutorialStage: 99,
+      activeRoundId: "missing-round",
+      bestRoundScores: { r01: 12.7, ghost: 9 },
+      upgradeLevels: { "work-shoes": 99, "fake-upgrade": 1 },
+    }));
+    const loaded = new SaveService(storage).load();
+    expect(loaded.credits).toBe(0);
+    expect(loaded.currentRoundId).toBe("r00");
+    expect(loaded.unlockedModuleIds).toEqual(["image-maker", "style-processor"]);
+    expect(loaded.introducedModuleIds).toEqual(["style-processor"]);
+    expect(loaded.snapshot.completedRoundIds).toEqual(["r01"]);
+    expect(loaded.bestRoundScores).toEqual({ r01: 12 });
+    expect(loaded.getUpgradeLevel("work-shoes")).toBe(3);
+    expect(loaded.upgradeLevels["fake-upgrade"]).toBeUndefined();
+    expect("tutorialStage" in loaded.snapshot).toBe(false);
   });
 
   it("persists introduced module tutorials", () => {
@@ -542,8 +570,6 @@ describe("Delivery credits & upgrades", () => {
 
   it("allows purchases from the start, gated only by balance and max level", () => {
     const progression = ProgressionService.createDefault();
-    expect(progression.isUpgradeUnlocked("work-shoes")).toBe(true);
-    expect(progression.isUpgradeUnlocked("order-analyzer")).toBe(true);
     // No credits yet
     expect(progression.purchaseUpgrade("work-shoes")).toEqual({
       ok: false,
@@ -569,6 +595,9 @@ describe("Delivery credits & upgrades", () => {
       ok: false,
       reason: "이미 최대 레벨입니다.",
     });
+    // Late catalog items are also buyable from the start
+    progression.addCredits(800);
+    expect(progression.purchaseUpgrade("order-analyzer").ok).toBe(true);
   });
 
   it("persists upgrade levels across save/load and resets on new game", () => {
@@ -576,7 +605,7 @@ describe("Delivery credits & upgrades", () => {
     const service = new SaveService(storage);
     const progression = ProgressionService.createDefault();
     progression.completeActiveRound(80, 50);
-    progression.activateRound("r01");
+    expect(activateNextRoundForPrep(progression)).toBe("r01");
     progression.completeActiveRound(90, 500);
     expect(progression.purchaseUpgrade("work-shoes").ok).toBe(true);
     service.save(progression);
@@ -596,9 +625,86 @@ describe("Delivery credits & upgrades", () => {
     expect(computeDeliveryCredits({ passed: true, patienceRatio: 0.4 })).toEqual({
       success: 100, perfect: 50, patience: 0, total: 150,
     });
-    expect(computeDeliveryCredits({ passed: true, perfect: false, patienceRatio: 0.6 })).toEqual({
-      success: 100, perfect: 0, patience: 20, total: 120,
+    expect(computeDeliveryCredits({ passed: true, patienceRatio: 0.6 })).toEqual({
+      success: 100, perfect: 50, patience: 20, total: 170,
     });
+  });
+
+  it("sums delivery rewards with round settlement credits", () => {
+    const progression = ProgressionService.createDefault();
+    progression.activateRound("r01");
+    progression.unlockModulesForRound("r01");
+    const session = new KitchenSession("r01", progression.unlockedModuleIds);
+    session.tick(0.1);
+    const customer = session.getWaitingCustomers()[0]!;
+    session.resetLine();
+    session.pickUpFromCustomer(customer.id);
+    session.interactInput();
+    session.pickUpFromShelf("image-maker");
+    session.interactSlot(0);
+    session.startProduce();
+    session.tick(3);
+    session.interactOutput();
+    const delivery = session.deliverToCustomer(customer.id);
+    expect(delivery.delivered?.reward).toBe(170);
+    progression.addCredits(delivery.delivered!.reward);
+    progression.completeActiveRound(80, 100);
+    expect(progression.credits).toBe(270);
+  });
+});
+
+describe("Shelf ∩ round availability", () => {
+  it("intersects unlocked chips with the round availableModuleIds", () => {
+    const session = new KitchenSession("r01", [
+      "image-maker",
+      "style-processor",
+      "ban-list",
+      "quality-checker",
+    ]);
+    expect(session.getShelfModuleIds()).toEqual(["image-maker"]);
+    expect(session.getUnlockedModuleIds()).toEqual(["image-maker"]);
+    expect(session.pickUpFromShelf("style-processor").ok).toBe(false);
+  });
+
+  it("does not unlock next-round chips on clear; unlocks on prep advance", () => {
+    const progression = ProgressionService.createDefault();
+    progression.completeActiveRound(80, 50);
+    expect(progression.unlockedModuleIds).toEqual(["image-maker"]);
+    expect(progression.currentRoundId).toBe("r00");
+    expect(activateNextRoundForPrep(progression)).toBe("r01");
+    expect(progression.currentRoundId).toBe("r01");
+    expect(progression.unlockedModuleIds).toEqual(["image-maker"]);
+
+    progression.completeActiveRound(90, 100);
+    expect(progression.unlockedModuleIds).not.toContain("style-processor");
+    expect(activateNextRoundForPrep(progression)).toBe("r02");
+    expect(progression.unlockedModuleIds).toContain("style-processor");
+  });
+});
+
+describe("Overlay input gate", () => {
+  it("blocks kitchen input while any overlay flag is set", () => {
+    expect(isUiBlockingOverlay({
+      inspectOpen: false,
+      roundSummaryOpen: false,
+      unlockTutorialOpen: false,
+      prepOpen: false,
+      analysisOpen: false,
+    })).toBe(false);
+    expect(isUiBlockingOverlay({
+      inspectOpen: true,
+      roundSummaryOpen: false,
+      unlockTutorialOpen: false,
+      prepOpen: false,
+      analysisOpen: false,
+    })).toBe(true);
+    expect(isUiBlockingOverlay({
+      inspectOpen: false,
+      roundSummaryOpen: true,
+      unlockTutorialOpen: false,
+      prepOpen: false,
+      analysisOpen: false,
+    })).toBe(true);
   });
 });
 
@@ -609,7 +715,7 @@ describe("Prep flow helpers", () => {
     expect(progression.currentRoundId).toBe("r00");
     expect(activateNextRoundForPrep(progression)).toBe("r01");
     expect(progression.currentRoundId).toBe("r01");
-    expect(progression.isUpgradeUnlocked("work-shoes")).toBe(true);
+    expect(progression.shopCatalog().some((row) => row.id === "work-shoes")).toBe(true);
   });
 
   it("returns undefined when every round is already finished", () => {
