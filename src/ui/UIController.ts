@@ -84,6 +84,16 @@ export class UIController {
     this.byId("analysis-modal").addEventListener("click", (event) => {
       if (event.target === this.byId("analysis-modal")) this.closeAnalysis();
     });
+    window.addEventListener("keydown", (event) => this.onGlobalKeyDown(event));
+  }
+
+  private onGlobalKeyDown(event: KeyboardEvent): void {
+    if (event.repeat) return;
+    const isZ = event.code === "KeyZ" || event.key === "z" || event.key === "Z";
+    if (!isZ) return;
+    if (!this.analysisOpen) return;
+    event.preventDefault();
+    this.closeAnalysis();
   }
 
   private startRound(fresh: boolean): void {
@@ -358,21 +368,29 @@ export class UIController {
   }
 
   private openProductAnalysis(): void {
+    if (this.analysisOpen) {
+      this.closeAnalysis();
+      return;
+    }
     if (!this.session) return;
     const carry = this.session.getCarry();
     if (carry.kind !== "product") return;
     const rows = productAnalysisRows(carry.orderId, carry.result);
-    this.openAnalysis("결과 분석", "칩 이름은 표시되지 않습니다.", rows, carry.prompt);
+    this.openAnalysis("결과 분석", "칩 이름은 표시되지 않습니다. Z로 닫기", rows, carry.prompt);
   }
 
   private openOrderAnalysis(): void {
+    if (this.analysisOpen) {
+      this.closeAnalysis();
+      return;
+    }
     if (!this.session) return;
     const carry = this.session.getCarry();
     if (carry.kind !== "order") return;
     const order = ordersById.get(carry.orderId);
     if (!order) return;
     const rows = orderAnalysisRows(order);
-    this.openAnalysis("주문 분석", "필요한 조건을 구조화해 보여 줍니다. 칩 이름은 비공개입니다.", rows, carry.prompt);
+    this.openAnalysis("주문 분석", "칩 이름은 비공개입니다. Z로 닫기", rows, carry.prompt);
   }
 
   private openAnalysis(title: string, hint: string, rows: Array<{ label: string; matched?: boolean; detail: string }>, prompt: string): void {
@@ -598,7 +616,7 @@ function shell(): string {
   </div>
   <div id="analysis-modal" class="inspect-modal is-hidden" role="dialog" aria-modal="true" aria-label="분석기">
     <div class="inspect-card">
-      <button id="analysis-close" class="ghost inspect-close" type="button">닫기</button>
+      <button id="analysis-close" class="ghost inspect-close" type="button">닫기 (Z)</button>
       <div id="analysis-body"></div>
     </div>
   </div>
