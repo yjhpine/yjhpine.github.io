@@ -554,8 +554,8 @@ function escapeHtml(value: string): string {
 function shell(): string {
   return `<main class="app-shell">
   <section id="menu-screen" class="menu-screen">
-    <div class="brand-chip">AI FACTORY</div>
-    <h1>AI Factory</h1>
+    <div class="brand-chip">MEOWDEL</div>
+    <h1>Meowdel</h1>
     <p class="hero-copy">라운드마다 손님을 응대하고<br>VRAM을 아끼며 최적 파이프라인을 만드세요</p>
     <p id="menu-progress" class="menu-progress"></p>
     <div class="menu-actions">
@@ -567,7 +567,7 @@ function shell(): string {
   <section id="game-screen" class="game-screen is-hidden">
     <header class="topbar">
       <div>
-        <span class="brand-chip small">AI FACTORY</span>
+        <span class="brand-chip small">MEOWDEL</span>
         <span id="order-step" class="order-step">1 / 7</span>
       </div>
       <div class="top-actions">

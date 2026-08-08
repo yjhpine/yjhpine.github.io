@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""AI Factory 게임 소개 및 설명 PDF 생성기.
+"""Meowdel 게임 소개 및 설명 PDF 생성기.
 
 대상: 심사·플레이어용 소개 문서 (개요 · 플레이 방법 · 실행 방법)
 기획서(01~05)와 별도로, 구현된 빌드 기준으로 작성한다.
@@ -141,7 +141,7 @@ def bullets(items: list[str]):
 def build_story():
     story = [
         Spacer(1, 18 * mm),
-        P("AI FACTORY", "kicker"),
+        P("MEOWDEL", "kicker"),
         P("게임 소개 및 설명", "title"),
         P("게임 개요 · 플레이 방법 · 실행 방법", "sub"),
         Spacer(1, 4 * mm),
@@ -281,8 +281,8 @@ def main():
         rightMargin=16 * mm,
         topMargin=14 * mm,
         bottomMargin=14 * mm,
-        title="AI Factory 게임 소개 및 설명",
-        author="AI Factory",
+        title="Meowdel 게임 소개 및 설명",
+        author="Meowdel",
     )
 
     def on_page(canvas, doc_):
@@ -292,7 +292,7 @@ def main():
         canvas.line(16 * mm, A4[1] - 10 * mm, A4[0] - 16 * mm, A4[1] - 10 * mm)
         canvas.setFont("IntroSans", 8)
         canvas.setFillColor(colors.HexColor("#6b7c8f"))
-        canvas.drawCentredString(A4[0] / 2, 8 * mm, f"AI FACTORY · 게임 소개 및 설명 · {doc_.page}")
+        canvas.drawCentredString(A4[0] / 2, 8 * mm, f"Meowdel · 게임 소개 및 설명 · {doc_.page}")
         canvas.restoreState()
 
     doc.build(build_story(), onFirstPage=on_page, onLaterPages=on_page)

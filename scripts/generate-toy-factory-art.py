@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate Cute Pixel Art Toy AI Factory assets.
+"""Generate Cute Pixel Art Toy Meowdel assets.
 
 Does NOT touch public/assets/characters/PlayerAnim (player cat is out of scope).
 """

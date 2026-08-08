@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""AI Factory 기획서 PDF 생성기 (2026-08-08 · 구현 동기화 개정).
+"""Meowdel 기획서 PDF 생성기 (2026-08-08 · 구현 동기화 개정).
 
 구현된 게임(Overcooked형 운반 + 모듈 칩 슬롯 + VRAM 효율 + 준비 타임 업그레이드)을 기준으로
 기획서 01~05를 다시 쓴다. 구버전(포트 드래그 DAG / 캐릭터 미조작 / 인게임 터미널 상점) 서술은 폐기한다.
@@ -105,7 +105,7 @@ def P(text: str, style="body"):
 def cover(doc_no: str, title: str, subtitle: str):
     return [
         Spacer(1, 24 * mm),
-        P("AI FACTORY | 구현 동기화 기획서", "cover_kicker"),
+        P("MEOWDEL | 구현 동기화 기획서", "cover_kicker"),
         P(f"{doc_no}. {title}", "cover_title"),
         P(subtitle, "cover_sub"),
         Spacer(1, 8 * mm),
@@ -168,7 +168,7 @@ def build(path: pathlib.Path, story):
         topMargin=14 * mm,
         bottomMargin=14 * mm,
         title=path.stem,
-        author="AI Factory",
+        author="Meowdel",
     )
 
     def on_page(canvas, doc_):
@@ -178,7 +178,7 @@ def build(path: pathlib.Path, story):
         canvas.line(16 * mm, A4[1] - 10 * mm, A4[0] - 16 * mm, A4[1] - 10 * mm)
         canvas.setFont("PlanSans", 8)
         canvas.setFillColor(colors.HexColor("#6b7c8f"))
-        canvas.drawCentredString(A4[0] / 2, 8 * mm, f"AI FACTORY 기획서 · {path.stem} · {doc_.page}")
+        canvas.drawCentredString(A4[0] / 2, 8 * mm, f"Meowdel 기획서 · {path.stem} · {doc_.page}")
         canvas.restoreState()
 
     doc.build(story, onFirstPage=on_page, onLaterPages=on_page)

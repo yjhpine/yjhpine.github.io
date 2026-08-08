@@ -89,7 +89,7 @@ def table(rows: list[list[str]], widths: list[float]):
 
 def main():
     story = [
-        P("AI FACTORY · 구현 동기화", "kicker"),
+        P("MEOWDEL · 구현 동기화", "kicker"),
         P("크레딧 & 공장 업그레이드", "title"),
         P("개정일 2026-08-08 · 코드(main) 기준. 인게임 터미널·라운드 해금 게이트는 폐기.", "body"),
         P("1. 목적", "h1"),

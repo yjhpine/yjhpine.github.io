@@ -2,7 +2,7 @@
 
 ## Project
 
-AI Factory — Phaser 3 + TypeScript + Vite + Vitest overcooked-style factory puzzle game. No real generative AI API; results are procedural.
+Meowdel — Phaser 3 + TypeScript + Vite + Vitest overcooked-style factory puzzle game. No real generative AI API; results are procedural.
 
 ## Local commands
 

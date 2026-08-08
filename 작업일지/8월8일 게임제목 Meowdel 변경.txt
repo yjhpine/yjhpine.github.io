@@ -1,0 +1,12 @@
+제목: 8월8일 게임제목 Meowdel로 변경
+
+작업 내용:
+- 메뉴/HUD 브랜드·h1을 Meowdel(MEOWDEL)로 변경
+- index.html title/description, README, AGENTS.md 동기화
+- 기획서·소개·크레딧 PDF 생성기 표기를 Meowdel로 재생성
+- 세이브 키·npm 패키지명(ai-factory)은 호환 유지
+
+변경 파일:
+- index.html, src/ui/UIController.ts, README.md, AGENTS.md
+- Docs/_tools/generate_*.py, 기획서·문서 PDF
+- Docs/Decisions.md, Docs/Progress.md
