@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate cozy detailed pixel art for AI Factory.
+"""Generate cozy detailed pixel art for Meowdel.
 
 Richer silhouettes + shading than the minimal toy placeholders.
 Does NOT touch public/assets/characters/PlayerAnim.

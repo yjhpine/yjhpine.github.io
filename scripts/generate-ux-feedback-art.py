@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate readable UX feedback pixel art for AI Factory.
+"""Generate readable UX feedback pixel art for Meowdel.
 
 Toy-factory palette. Does NOT touch player character assets.
 """
