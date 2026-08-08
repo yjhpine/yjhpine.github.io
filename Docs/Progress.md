@@ -1,5 +1,9 @@
 # Progress
 
+## 2026-08-08
+
+- ChatGPT 4×4 고양이 시트를 `public/assets/art/previews/cat-*.png` 16장으로 분할·매핑 교체.
+
 ## 2026-08-07
 
 - 결과 프리뷰 16장 사진 팩 파이프라인: `public/assets/art/previews/`, assetKey 매핑, QC/품질 오버레이, 이미지 없을 때 절차적 폴백.

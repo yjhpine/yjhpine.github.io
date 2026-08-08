@@ -1,33 +1,37 @@
 # Preview photo pack (16)
 
-Replace these placeholder PNGs with final cat art. **Keep the exact filenames.**
+Prepared from the ChatGPT 4×4 sheet via `scripts/slice-preview-sheet.py`.
 
-## Naming
+## Mapping
+
+| Sheet row | style | hat |
+|-----------|-------|-----|
+| 0 | plain (실내) | no-hat |
+| 1 | plain (실내) | hat (빨간 모자) |
+| 2 | fairytale (성·벚꽃) | no-hat |
+| 3 | fairytale | hat (마법사 모자) |
+
+| Sheet col | composition | sharpness |
+|-----------|-------------|-----------|
+| 0 | offset | soft |
+| 1 | center | soft |
+| 2 | offset | sharp |
+| 3 | center | sharp |
+
+Soft variants get a light blur so soft/sharp stays readable in-game.
+
+## Filenames
 
 ```
 cat-{style}-{hat}-{composition}-{sharpness}.png
 ```
 
-| Axis | Values | Meaning |
-|------|--------|---------|
-| style | `plain`, `fairytale` | 기본 / 동화풍 |
-| hat | `hat`, `no-hat` | 모자 있음 / 없음 |
-| composition | `offset`, `center` | 치우친 구도 / 중앙 |
-| sharpness | `soft`, `sharp` | 흐림 / 선명 |
+QC stamp + quality (lo/mid/hi) remain CSS overlays — not separate files.
 
-## Not separate files
+## Source
 
-- **QC 검사 도장** → UI CSS overlay (`preview--checked`)
-- **품질 lo/mid/hi** → grain + filter overlay (`preview--q-*`)
-
-## Spec
-
-- Size: **256×256** (or 512×512), square PNG
-- Style: pixel art preferred (`image-rendering: pixelated`)
-- Soft/sharp should be visible in the image itself (not only via CSS)
-
-## Regenerate placeholders
+Original sheet archived at `_source/`.
 
 ```bash
-python3 scripts/generate-preview-placeholders.py
+python3 scripts/slice-preview-sheet.py
 ```

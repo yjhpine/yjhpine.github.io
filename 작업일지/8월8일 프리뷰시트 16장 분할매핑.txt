@@ -1,0 +1,7 @@
+프리뷰 시트 16장 분할·매핑 교체
+
+- ChatGPT 4x4 시트를 cat-*.png 16장으로 분할
+- 행: plain/fairytale × no-hat/hat
+- 열: offset/center × soft/sharp
+- soft는 가벼운 블러 적용, 원본 시트는 previews/_source 보관
+- scripts/slice-preview-sheet.py 추가
