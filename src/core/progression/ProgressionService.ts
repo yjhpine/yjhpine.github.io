@@ -56,9 +56,7 @@ export class ProgressionService {
   }
 
   isUpgradeUnlocked(id: UpgradeId | string): boolean {
-    const definition = upgradesById.get(id as UpgradeId);
-    if (!definition) return false;
-    return this.isComplete(definition.unlockAfterRoundId);
+    return upgradesById.has(id as UpgradeId);
   }
 
   /** Shop rows: unlocked upgrades first, then locked teasers. */
@@ -92,9 +90,6 @@ export class ProgressionService {
   purchaseUpgrade(id: UpgradeId | string): PurchaseUpgradeResult {
     const definition = upgradesById.get(id as UpgradeId);
     if (!definition) return { ok: false, reason: "알 수 없는 업그레이드입니다." };
-    if (!this.isUpgradeUnlocked(definition.id)) {
-      return { ok: false, reason: `${definition.unlockAfterRoundId} 클리어 후 해금됩니다.` };
-    }
     const current = this.getUpgradeLevel(definition.id);
     if (current >= definition.maxLevel) return { ok: false, reason: "이미 최대 레벨입니다." };
     const next = definition.levels[current]!;

@@ -1237,13 +1237,8 @@ export class KitchenScene extends Phaser.Scene {
       y = this.facingY > 0 ? 6 : -12;
     }
     this.carryIcon.setPosition(x, y);
-
-    // Facing up: tuck item behind the cat so it reads as held, not floating on the face.
-    if (this.facingY < 0 && Math.abs(this.facingY) >= Math.abs(this.facingX)) {
-      this.player.sendToBack(this.carryIcon);
-    } else {
-      this.player.bringToTop(this.carryIcon);
-    }
+    // Always draw the held item above the player sprite.
+    this.player.bringToTop(this.carryIcon);
   }
 
   private spawnFx(key: string, x: number, y: number, scale = 2): void {

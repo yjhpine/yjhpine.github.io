@@ -537,14 +537,16 @@ describe("Delivery credits & upgrades", () => {
     expect(baseProgress).toBe(0);
   });
 
-  it("gates purchases by round clear, balance, and max level", () => {
+  it("allows purchases from the start, gated only by balance and max level", () => {
     const progression = ProgressionService.createDefault();
-    expect(progression.purchaseUpgrade("work-shoes").ok).toBe(false);
-    progression.completeActiveRound(80, 50); // r00
-    progression.activateRound("r01");
-    progression.completeActiveRound(90, 200); // r01 → unlock shoes
     expect(progression.isUpgradeUnlocked("work-shoes")).toBe(true);
-    expect(progression.credits).toBe(250);
+    expect(progression.isUpgradeUnlocked("order-analyzer")).toBe(true);
+    // No credits yet
+    expect(progression.purchaseUpgrade("work-shoes")).toEqual({
+      ok: false,
+      reason: "크레딧이 부족합니다.",
+    });
+    progression.addCredits(250);
 
     const bought = progression.purchaseUpgrade("work-shoes");
     expect(bought).toMatchObject({ ok: true, level: 1, spent: 100 });
@@ -604,8 +606,6 @@ describe("Prep flow helpers", () => {
     expect(progression.currentRoundId).toBe("r00");
     expect(activateNextRoundForPrep(progression)).toBe("r01");
     expect(progression.currentRoundId).toBe("r01");
-    expect(progression.isUpgradeUnlocked("work-shoes")).toBe(false);
-    progression.completeActiveRound(90, 200);
     expect(progression.isUpgradeUnlocked("work-shoes")).toBe(true);
   });
 

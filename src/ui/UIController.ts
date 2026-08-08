@@ -323,15 +323,13 @@ export class UIController {
     this.byId("prep-shop-list").innerHTML = this.progression.shopCatalog().map((row) => {
       const levelText = row.maxLevel > 1 ? `Lv.${row.level}/${row.maxLevel}` : (row.level >= 1 ? "보유" : "미보유");
       let action = "";
-      if (!row.unlocked) {
-        action = `<button class="secondary" type="button" disabled>${row.unlockAfterRoundId} 클리어 후</button>`;
-      } else if (row.level >= row.maxLevel) {
+      if (row.level >= row.maxLevel) {
         action = `<button class="secondary" type="button" disabled>최대 레벨</button>`;
       } else {
         const canAfford = (row.nextPrice ?? 0) <= this.progression.credits;
         action = `<button class="primary" type="button" data-upgrade-id="${row.id}" ${canAfford ? "" : "disabled"}>${row.nextPrice} C</button>`;
       }
-      return `<article class="upgrade-row ${row.unlocked ? "" : "is-locked"}">
+      return `<article class="upgrade-row">
         <div>
           <b>${escapeHtml(row.displayName)} <small>${levelText}</small></b>
           <p>${escapeHtml(row.description)}</p>
